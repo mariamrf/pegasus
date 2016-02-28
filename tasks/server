@@ -1,0 +1,24 @@
+#!/usr/bin/env python3
+from ipaddress import ip_address
+import argparse
+import http.server
+import socketserver
+import sys
+
+def main():
+    try:  
+        parser = argparse.ArgumentParser()
+        parser.add_argument('-ip', help='IP address where the server will run', type=ip_address, default='127.0.0.1', metavar='IP ADDRESS')
+        parser.add_argument('--port', help='port number for the server', type=int, choices=range(0,65535), default=8080, metavar='PORT NUMBER')
+        args = parser.parse_args()
+        ip = str(args.ip)
+        Handler = http.server.SimpleHTTPRequestHandler
+        httpd = socketserver.TCPServer((ip, args.port), Handler)
+        print("Server's running at", args.ip, args.port)
+        httpd.serve_forever()
+    except KeyboardInterrupt:
+        print("\nShutting down server..")
+    sys.exit(0)
+
+if __name__ == "__main__":
+    main()
