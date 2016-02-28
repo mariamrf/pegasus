@@ -1,0 +1,21 @@
+#!/usr/bin/env python3
+from collections import namedtuple
+import random
+
+def main():
+    Wizard = namedtuple('Wizard', 'name house')
+    houses = ['Gryffindor', 'Hufflepuff', 'Slytherin', 'Ravenclaw']
+    myhouse = random.choice(houses)
+    me = Wizard('Jane Doe', myhouse)
+    print("Welcome to Hogwarts! This year, new wizards are sorted into random houses, and it's immutable. I have the sorted list..")
+    name = input("What's your name? ")
+    yourhouse = random.choice(houses)
+    you = Wizard(name, yourhouse)
+    if me.house == you.house:
+        print("Hmm..looks like you're a", me.house, "too..Pleasure to meet you! I'm", me.name + ".")
+    else:
+        print("Ugh, you're a", you.house + ".")
+
+
+if __name__ == "__main__":
+    main()
