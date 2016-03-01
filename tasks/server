@@ -20,7 +20,7 @@ class serverHandler(BaseHTTPRequestHandler):
             self.wfile.write(f.read().encode('utf-8'))
             f.close()
         except IOError:
-            if path == '/moved': # If /moved is present it will open, otherwise it will redirect to /hey
+            if path == '/moved': # If /moved is present it will open, otherwise it will redirect to /here
                 self.send_response(301)
                 self.send_header('Location', 'here')
                 self.end_headers()
