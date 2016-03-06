@@ -1,0 +1,16 @@
+#!/usr/bin/env python3
+from datetime import datetime
+
+class mgr:
+	def __enter__(self):
+		self.t0 = datetime.now()
+		print("Started at", str(self.t0))
+	def __exit__(self, type, value, traceback):
+		print("Ended after", str(datetime.now() - self.t0))
+
+def main():
+	with mgr():
+		print("This is a block")
+
+if __name__ == "__main__":
+	main()
