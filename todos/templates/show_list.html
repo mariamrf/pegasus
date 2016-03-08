@@ -1,0 +1,19 @@
+{% extends 'layout.html' %}
+{% block body %}
+	{% if session.logged_in %}
+	<form action="{{ url_for('add_item') }}" method='post' class='add-entry'>
+		<dl>
+		<dt>Entry:</dt>
+		<dd><input type='text' size='30' name='content'></dd>
+		<dd><input type='submit' value='Add'></dd>
+		</dl>
+	</form>
+	{% endif %}
+	<ul class='li'>
+		{% for item in li %}
+			<ol>{{ item.content }}</ol>
+		{% else %}
+			<li>You have stuff to do. Just not on this list. Yet.</li>
+		{% endfor %}
+	</ul>
+{% endblock %}
