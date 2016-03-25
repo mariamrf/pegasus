@@ -26,6 +26,9 @@ def init_db():
 def login_user(username):
     session['logged_in'] = True
     session['username'] = username
+    cur = g.db.execute('select id from users where username=?', [username]).fetchone()
+    uid = cur[0]
+    session['userid'] = uid # to register any info in another table where userid is a FK instead of querying every time
 
 # database requests
 @app.before_request
@@ -86,10 +89,19 @@ def login():
                 return redirect(url_for('show_list'))
     return render_template('login.html', error=error)
 
+@app.route('/profile')
+def show_profile():
+	if not session.get('logged_in'):
+		abort(401)
+	uid = session.get('userid')
+	cur = g.db.execute('select name, email from users where id=?', [uid]).fetchone()
+	return render_template('profile.html', name=cur[0], email=cur[1])
+
 @app.route('/logout')
 def logout():
     session.pop('logged_in', None)
     session.pop('username', None)
+    session.pop('userid', None)
     flash('You go bye bye :(', 'warning')
     return redirect(url_for('show_list')) # always going there..
 
