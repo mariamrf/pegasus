@@ -58,17 +58,43 @@
 	text-transform: uppercase;
 	background-color: #07C87F; /* GLOBAL GREEN */
 	color:#f9fafa;
-	transition: color 0.5s;
-	-webkit-transition:color 0.5s;
+	transition: background-color 0.5s;
+	-webkit-transition: background-color 0.5s;
+}
+.alert{
+	border-radius:0 !important;
 }
 
+.login-nav{
+	margin-top:0.4em;
+}
+
+label{
+	font-size:1.2em;
+}
 .full-btn{
 	width:100%;
 }
 
+.form-control{
+	border-width: 0.2em;
+	border-radius:0px;
+	border-top:0px;
+	border-right:0px;
+	border-left:0px;
+	box-shadow: 0 0 0;
+	transition: background-color 0.5s, border-color 0.5s;
+	-webkit-transition:background-color 0.5s, border-color 0.5s;
+}
+
+
+.form-control:hover{
+	background-color:#eee;
+	border-color: rgba(7, 200, 127, 1);
+}
 .form-control:focus{
 	border-color: rgba(7, 200, 127, 1);
-  	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.075) inset, 0 0 8px rgba(7, 200, 127, 0.3);
+  	box-shadow: 0 0 0 rgba(7, 200, 127, 0.3);
 }
 .global-btn:hover{
 	background-color: #f9fafa;

@@ -58,9 +58,10 @@ def register_user():
     if request.method == 'POST':
         try:
             pw = generate_password_hash(request.form['password'])
-            g.db.execute('insert into users (username, password, email, name) values (?, ?, ?, ?)', [request.form['username'], pw, request.form['email'], request.form['name']])
+            un = request.form['username'].lower()
+            g.db.execute('insert into users (username, password, email, name) values (?, ?, ?, ?)', [un, pw, request.form['email'], request.form['name']])
             g.db.commit()
-            login_user(request.form['username'])
+            login_user(un)
             return redirect(url_for('show_list'))
         except sqlite3.IntegrityError as e:
         	if e.args[0][32:] == 'email':
@@ -74,7 +75,7 @@ def register_user():
 def login():
     error = None
     if request.method == 'POST':
-        cur = g.db.execute('select username, password from users where username=?', [request.form['username']])
+        cur = g.db.execute('select username, password from users where username=?', [request.form['username'].lower()])
         cur_res = cur.fetchone()
         if cur_res == None:
             error = 'Invalid username'

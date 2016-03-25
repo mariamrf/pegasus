@@ -6,24 +6,24 @@
   {% endif %}
    <form action="{{ url_for('register_user') }}" name='register-form' method='post' onsubmit='return validateForm()'>
         <div class='form-group'>
-         <label for='name-form'>Name:</label>
-         <input type='text' class='form-control' id='name-form' name='name' placeholder='Optional'>
+         <label for='name-form'>Name</label>
+         <input type='text' class='form-control' id='name-form' name='name' placeholder='OPTIONAL'>
         </div>
         <div class='form-group'>
-         <label for='username-form'>Username:</label>
-         <input type='text' class='form-control' id='username-form' name='username' required>
+         <label for='username-form'>Username</label>
+         <input type='text' class='form-control' id='username-form' name='username' placeholder='WILL BE VISIBLE TO EVERYONE' required>
         </div>
         <div class='form-group'>
-         <label for='email-form'>Email:</label>
-         <input type='email' class='form-control' id='email-form' name='email' required>
+         <label for='email-form'>Email</label>
+         <input type='email' class='form-control' id='email-form' name='email' placeholder='ABC@XYZ.COM' required>
         </div>
         <div class='form-group'>
-         <label for='password-form'>Password:</label>
-         <input type='password' class='form-control' id='password-form' name='password' required>
+         <label for='password-form'>Password</label>
+         <input type='password' class='form-control' id='password-form' name='password' placeholder='GOING ONCE..' required>
         </div>
         <div class='form-group'>
-         <label for='password-confirm-form' id='password-confirm-label'>Confirm password:</label>
-         <input type='password' class='form-control' id='password-confirm-form' name='password-confirm' required>
+         <label for='password-confirm-form' id='password-confirm-label'>Confirm password</label>
+         <input type='password' class='form-control' id='password-confirm-form' name='password-confirm' placeholder='GOING TWICE..' required>
         </div>
          <button type='submit' class='global-btn full-btn'>Register</button>
     </form>
