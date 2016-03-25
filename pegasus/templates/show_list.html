@@ -1,21 +1,9 @@
 {% extends 'layout.html' %}
-{% block body %}
-	
-	<form action="{{ url_for('register_user') }}" method='post' class='add-entry'>
-		<dl>
-		<dt>username:</dt>
-		<dd><input type='text' size='30' name='username'></dd>
-		<dt>password:</dt>
-		<dd><input type='password' size='30' name='password'></dd>
-		<dt>email:</dt>
-		<dd><input type='email' size='30' name='email'></dd>
-		<dd><input type='submit' value='Add'></dd>
-		</dl>
-	</form>
-	
+{% block content %}
+	<h2>All Users</h2>
 	<ul class='li'>
 		{% for item in li %}
-			<ol>{{ item.username }} - {{ item.password }} - {{ item.email }}</ol>
+			<ol>{{ item.username }} - Joined: {{ item.jdate }}</ol>
 		{% else %}
 			<li>No users yet! Add user.</li>
 		{% endfor %}

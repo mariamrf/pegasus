@@ -1,0 +1,83 @@
+
+.li        		{ margin: 0; padding: 0; }
+.li li, .li ol  { margin: 0.8em 1.2em; }
+.add-entry      { font-size: 0.9em; border-bottom: 1px solid #ccc; }
+.add-entry dl   { font-weight: bold; }
+.metanav        { text-align: right; font-size: 0.8em; padding: 0.3em; margin-bottom: 1em; background: #fafafa; }
+.flash          { background: #cee5F5; padding: 0.5em; border: 1px solid #aacbe2; }
+.error          { background: #f0d6d6; padding: 0.5em; }
+
+*{
+	font-family: 'Titillium Web', sans-serif;
+}
+
+.modal-header, .header{
+	color: #f9fafa; /* GLOBAL WHITE */
+	text-transform: uppercase;
+	background: #1A1A1A; /* fallback for old browsers */ /* GLOBAL DARK */
+	background: -webkit-linear-gradient(to right, #1A1A1A , #414345); /* Chrome 10-25, Safari 5.1-6 */
+	background: linear-gradient(to right, #1A1A1A , #414345); /* W3C, IE 10+/ Edge, Firefox 16+, Chrome 26+, Opera 12+, Safari 7+ */
+}
+.global-btn{
+	border-radius:1em;
+	padding-right:1em;
+	padding-left:1em;
+	padding-top:0.2em;
+	padding-bottom:0.2em;
+	border-width:0;
+	font-size:1em;
+	text-transform: uppercase;
+	background-color: #07C87F; /* GLOBAL GREEN */
+	color:#f9fafa;
+	transition: color 0.5s;
+	-webkit-transition:color 0.5s;
+}
+
+.full-btn{
+	width:100%;
+}
+
+.form-control:focus{
+	border-color: rgba(7, 200, 127, 1);
+  	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.075) inset, 0 0 8px rgba(7, 200, 127, 0.3);
+}
+.global-btn:hover{
+	background-color: #f9fafa;
+	color:#07C87F;
+}
+
+.register-btn{
+	margin-right: 1em;
+}
+
+.header{
+	padding:1em;      
+	min-height: 8vh;
+}
+
+.header a, .all a{
+	color:#07C87F;
+	transition: color 0.5s;
+	-webkit-transition: color 0.5s;
+}
+
+.header a:hover, .header a:focus, .all a:hover, .all a:focus{
+	text-decoration: none;
+}
+
+.header a:hover{
+	color:#f9fafa;
+}
+
+.all{
+	margin-top: 1em;
+}
+
+.all a:hover{
+	color:#087A4F;
+}
+
+
+.title{
+	font-size:1.5em;
+}

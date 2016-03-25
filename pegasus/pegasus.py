@@ -23,6 +23,9 @@ def init_db():
             db.cursor().executescript(f.read())
         db.commit()
 
+def login_user(username):
+	session['logged_in'] = True
+	session['username'] = username
 
 # database requests
 @app.before_request
@@ -39,23 +42,26 @@ def teardown_request(exception):
 # routing (views)
 @app.route('/')
 def show_list():
-    cur = g.db.execute('select username, password, email from users order by id')
-    li = [dict(username=row[0], password=row[1], email=row[2]) for row in cur.fetchall()]
+    cur = g.db.execute('select username, join_date from users order by id')
+    li = [dict(username=row[0], jdate=row[1]) for row in cur.fetchall()]
     # li = [{'name': 'hello'}, {'name': 'hi'}]
     return render_template('show_list.html', li=li)
 
-@app.route('/register', methods=['POST'])
+@app.route('/register', methods=['GET', 'POST'])
 def register_user():
     if session.get('logged_in'):
         abort(401)
-    try:
-        pw = generate_password_hash(request.form['password'])
-        g.db.execute('insert into users (username, password, email) values (?, ?, ?)', [request.form['username'], pw, request.form['email']])
-        g.db.commit()
-        flash('New user was successfully created!')
-    except sqlite3.IntegrityError:
-        flash('Username/email already in use')
-    return redirect(url_for('show_list'))
+    error = None
+    if request.method == 'POST':
+        try:
+            pw = generate_password_hash(request.form['password'])
+            g.db.execute('insert into users (username, password, email) values (?, ?, ?)', [request.form['username'], pw, request.form['email']])
+            g.db.commit()
+            login_user(request.form['username'])
+            return redirect(url_for('show_list'))
+        except sqlite3.IntegrityError:
+            error = 'Username/Email already in use'
+    return render_template('register.html', error=error)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -71,16 +77,16 @@ def login():
             if check_password_hash(pw, request.form['password']) == False: # ouch
                 error = 'Invalid password'
             else:
-                session['logged_in'] = True
-                session['username'] = username
-                flash('Hey there!')
+                login_user(username)
+                flash('Hey there!', 'info')
                 return redirect(url_for('show_list'))
     return render_template('login.html', error=error)
 
 @app.route('/logout')
 def logout():
     session.pop('logged_in', None)
-    flash('You go bye bye :(')
+    session.pop('username', None)
+    flash('You go bye bye :(', 'warning')
     return redirect(url_for('show_list')) # always going there..
 
 

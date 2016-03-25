@@ -1,19 +1,67 @@
 <!doctype html>
 <title>Pegasus</title>
-<link rel='stylesheet' type='text/css' href="{{ url_for('static', filename='styles.css') }}">
-<div class='page'>
-	<h1>Pegasus</h1>
-	<div class='metanav'>
+<link href='https://fonts.googleapis.com/css?family=Titillium+Web:400,600' rel='stylesheet' type='text/css'>
+<link rel='stylesheet' type='text/css' href="{{ url_for('static', filename='css/bootstrap.min.css')}}">
+<link rel='stylesheet' type='text/css' href="{{ url_for('static', filename='css/styles.css') }}">
+<div class='header container-fluid'>
+	<div class='row'>
+		<div class='col-xs-6 title'><a href="{{  url_for('show_list') }}" title='Home'>Pegasus</a></div>
+		<div class='col-xs-6 text-right'>
 		{% if not session.logged_in %}
-		<a href="{{ url_for('login') }}">Log In</a>
+			<a href="{{ url_for('register_user') }}" class='register-btn'>Register</a><button class='global-btn' data-toggle='modal' data-target='#loginModal'>Login</button>
 		{% else %}
-		<a href="{{ url_for('logout') }}">Log Out</a>
+			{{ session.username }} | 
+			<a href="{{ url_for('logout') }}">Log Out</a>
 		{% endif %}
+		</div>
 	</div>
-	{% for message in get_flashed_messages() %}
-	<div class='flash'>
-		{{ message }}
-	</div>
-	{% endfor %}
-	{% block body %}{% endblock %}
 </div>
+<div class='container all'>
+	<div class='row'>
+		<div class='col-xs-12'>
+			{% for category, message in get_flashed_messages(with_categories=true) %}
+			<div class='alert alert-{{category}}' role='alert'>
+				{{ message }}
+			</div>
+			{% endfor %}
+		</div>
+	</div>
+	<div class='row'>
+		<div class='col-xs-12'>
+			{% block content %}{% endblock %}
+		</div>
+	</div>
+</div>
+<!-- Modals -->
+{% if not session.logged_in %}
+<!--Login-->
+<div class="modal fade" id="loginModal" tabindex="-1" role="dialog" aria-labelledby="loginModalLabel">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+        <h4 class="modal-title" id="loginModalLabel">Login</h4>
+      </div>
+      <div class="modal-body">
+		  <form action="{{ url_for('login') }}" method='post'>
+		  	<div class='form-group'>
+		     <label for='username-modal'>Username:</label>
+		     <input type='text' class='form-control' id='username-modal' name='username'>
+		    </div>
+		    <div class='form-group'>
+		     <label for='password-modal'>Password:</label>
+		     <input type='password' class='form-control' id='password-modal' name='password'>
+		    </div>
+		     <button type='submit' class='global-btn full-btn'>Login</button>
+		  </form>
+      </div>
+    </div>
+  </div>
+</div>
+<!--End Login-->
+{% endif %}
+<!--End Modals-->
+<!--Scripts-->
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+<script src="{{ url_for('static', filename='js/bootstrap.min.js')}}"></script>
+<!--End Scripts-->
