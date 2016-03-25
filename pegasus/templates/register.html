@@ -2,21 +2,45 @@
 {% block content %}
   <h2>Register</h2>
   {% if error %}
-  <div class='alert alert-danger' role='alert'> {{ error }} </div>
+   <div class='alert alert-danger' role='alert'> {{ error }} </div>
   {% endif %}
-   <form action="{{ url_for('register_user') }}" method='post'>
+   <form action="{{ url_for('register_user') }}" name='register-form' method='post' onsubmit='return validateForm()'>
+        <div class='form-group'>
+         <label for='name-form'>Name:</label>
+         <input type='text' class='form-control' id='name-form' name='name' placeholder='Optional'>
+        </div>
         <div class='form-group'>
          <label for='username-form'>Username:</label>
-         <input type='text' class='form-control' id='username-form' name='username'>
+         <input type='text' class='form-control' id='username-form' name='username' required>
         </div>
         <div class='form-group'>
          <label for='email-form'>Email:</label>
-         <input type='email' class='form-control' id='email-form' name='email'>
+         <input type='email' class='form-control' id='email-form' name='email' required>
         </div>
         <div class='form-group'>
          <label for='password-form'>Password:</label>
-         <input type='password' class='form-control' id='password-form' name='password'>
+         <input type='password' class='form-control' id='password-form' name='password' required>
+        </div>
+        <div class='form-group'>
+         <label for='password-confirm-form' id='password-confirm-label'>Confirm password:</label>
+         <input type='password' class='form-control' id='password-confirm-form' name='password-confirm' required>
         </div>
          <button type='submit' class='global-btn full-btn'>Register</button>
-      </form>
+    </form>
+    <script>
+      function validateForm(){
+        var form = document.forms['register-form'];
+        var pw = form['password'].value;
+        var pconfirm = form['password-confirm'].value;
+        if(pconfirm == pw) return true;
+        else {
+          if(!$('#password-confirm-label').hasClass('error-confirm')){
+            $('#password-confirm-label').append('<span style="color:red;"> ! Passwords must match</span>');
+            $('#password-confirm-form').css('border-color', 'red');
+            $('#password-confirm-label').addClass('error-confirm');
+          }
+          return false;
+        }
+      }
+    </script>
 {% endblock %}

@@ -24,8 +24,8 @@ def init_db():
         db.commit()
 
 def login_user(username):
-	session['logged_in'] = True
-	session['username'] = username
+    session['logged_in'] = True
+    session['username'] = username
 
 # database requests
 @app.before_request
@@ -55,12 +55,16 @@ def register_user():
     if request.method == 'POST':
         try:
             pw = generate_password_hash(request.form['password'])
-            g.db.execute('insert into users (username, password, email) values (?, ?, ?)', [request.form['username'], pw, request.form['email']])
+            g.db.execute('insert into users (username, password, email, name) values (?, ?, ?, ?)', [request.form['username'], pw, request.form['email'], request.form['name']])
             g.db.commit()
             login_user(request.form['username'])
             return redirect(url_for('show_list'))
-        except sqlite3.IntegrityError:
-            error = 'Username/Email already in use'
+        except sqlite3.IntegrityError as e:
+        	if e.args[0][32:] == 'email':
+        		error = 'Email'
+        	elif e.args[0][32:] == 'username':
+        		error = 'Username'
+        	error = error + ' already in use.'
     return render_template('register.html', error=error)
 
 @app.route('/login', methods=['GET', 'POST'])
