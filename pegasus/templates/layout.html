@@ -43,6 +43,7 @@
 		{% if not session.logged_in %}
 			<a href="{{ url_for('register_user') }}" class='register-btn'>Register</a><button class='global-btn' data-toggle='modal' data-target='#loginModal'>Login</button>
 		{% else %}
+			<button class='global-btn register-btn' title='Create Board' data-toggle='modal' data-target='#newBoardModal'><i class='fa fa-plus'></i></button>
 			<button class='global-btn register-btn' title='Your profile' onclick="location.href='/profile';"><i class='fa fa-user'></i></button>
 			<a href="{{ url_for('logout') }}">Log Out</a>
 		{% endif %}
@@ -92,6 +93,28 @@
   </div>
 </div>
 <!--End Login-->
+{% else %}
+<!--New Board-->
+<div class="modal fade" id="newBoardModal" tabindex="-1" role="dialog" aria-labelledby="newBoardLabel">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+        <h4 class="modal-title" id="newBoardLabel">Create Board</h4>
+      </div>
+      <div class="modal-body">
+		  <form action="{{ url_for('create_board') }}" method='post'>
+		  	<div class='form-group'>
+		     <label for='title-modal'>Title</label>
+		     <input type='text' class='form-control' id='title-modal' name='title'  placeholder='SOMETHING DESCRIPTIVE' required>
+		    </div>
+		     <button type='submit' class='global-btn full-btn'>Create</button>
+		  </form>
+      </div>
+    </div>
+  </div>
+</div>
+<!--End New Board-->
 {% endif %}
 <!--End Modals-->
 

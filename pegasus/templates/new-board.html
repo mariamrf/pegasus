@@ -1,0 +1,14 @@
+{% extends 'layout.html' %}
+{% block content %}
+  <h2>New Board</h2>
+  {% if error %}
+   <div class='alert alert-danger' role='alert'> {{ error }} </div>
+  {% endif %}
+   <form action="{{ url_for('create_board') }}" name='board-form' method='post'>
+        <div class='form-group'>
+         <label for='title-form'>Title</label>
+         <input type='text' class='form-control' id='title-form' name='title' placeholder='OPTIONAL'>
+        </div>
+         <button type='submit' class='global-btn full-btn'>Create</button>
+    </form>
+{% endblock %}
