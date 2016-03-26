@@ -44,7 +44,7 @@ def teardown_request(exception):
 
 # routing (views)
 @app.route('/')
-def show_list():
+def index():
     cur = g.db.execute('select username, join_date from users order by id')
     li = [dict(username=row[0], jdate=row[1]) for row in cur.fetchall()]
     # li = [{'name': 'hello'}, {'name': 'hi'}]
@@ -88,7 +88,7 @@ def login():
             else:
                 login_user(username)
                 flash('Hey there!', 'info')
-                return redirect(url_for('show_list'))
+                return redirect(url_for('index'))
     return render_template('login.html', error=error)
 
 @app.route('/profile')
@@ -105,7 +105,7 @@ def logout():
     session.pop('username', None)
     session.pop('userid', None)
     flash('You go bye bye :(', 'warning')
-    return redirect(url_for('show_list')) # always going there..
+    return redirect(url_for('index')) # always going there..
 
 # AJAX functions
 @app.route('/_validateUsername')

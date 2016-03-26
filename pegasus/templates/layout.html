@@ -1,19 +1,19 @@
+<!--Metadata-->
 <!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Pegasus</title>
+<!--End Metadata-->
+<!--CSS-->
 <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
 <link href='https://fonts.googleapis.com/css?family=Titillium+Web:400,600' rel='stylesheet' type='text/css'>
 <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.5.0/css/font-awesome.min.css">
 <link rel='stylesheet' type='text/css' href="{{ url_for('static', filename='css/bootstrap.min.css')}}">
 <link rel='stylesheet' type='text/css' href="{{ url_for('static', filename='css/styles.css') }}">
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
-<script>
-	$SCRIPT_ROOT = {{ request.script_root|tojson|safe }};
-</script>
+<!--End CSS-->
 <div class='header container-fluid'>
 	<div class='row'>
 		<div class='col-xs-4'>
-		<a href="{{  url_for('show_list') }}" title='Home'>
+		<a href="{{  url_for('index') }}" title='Home'>
 			<svg id="logo-svg">
 				<g>
 					<polygon points="37.723,18.175 32.028,18.175 34.874,23.105   " fill="#07C87F"/>
@@ -96,7 +96,11 @@
 <!--End Modals-->
 
 <!--Scripts-->
-
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
 <script src="{{ url_for('static', filename='js/bootstrap.min.js')}}"></script>
-
+<script>
+	$SCRIPT_ROOT = {{ request.script_root|tojson|safe }};
+</script>
+{% block scripts %}
+{% endblock %}
 <!--End Scripts-->

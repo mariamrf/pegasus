@@ -27,6 +27,9 @@
         </div>
          <button type='submit' class='global-btn full-btn'>Register</button>
     </form>
+{% endblock %}
+
+ {% block scripts %}
     <script>
       $(function() {
         $('#username-form').bind('blur', function() {
@@ -104,4 +107,4 @@
         else return false;
       }
     </script>
-{% endblock %}
+    {% endblock %}
