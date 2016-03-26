@@ -1,27 +1,8 @@
-#!/usr/bin/env python3
+from pegasus import app
 import sqlite3
-from flask import Flask, request, session, g, redirect, url_for, abort, render_template, flash, jsonify
+from flask import request, session, g, redirect, url_for, abort, render_template, flash, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
-from contextlib import closing
 
-# config (which should be in another file for larger apps)
-DATABASE = '/tmp/pegasus.db'
-DEBUG = True
-SECRET_KEY = 'you shall not pass'
-
-
-# initialize app
-app = Flask(__name__)
-app.config.from_object(__name__) # or the other file if we had the config in another file (ref: app.config.from_envvar('FLASKR_SETTINGS', silent=True))
-
-def connect_db():
-    return sqlite3.connect(app.config['DATABASE'])
-
-def init_db():
-    with closing(connect_db()) as db:
-        with app.open_resource('schema.sql', mode='r') as f:
-            db.cursor().executescript(f.read())
-        db.commit()
 
 def login_user(username):
     session['logged_in'] = True
@@ -29,19 +10,7 @@ def login_user(username):
     cur = g.db.execute('select id from users where username=?', [username]).fetchone()
     uid = cur[0]
     session['userid'] = uid # to register any info in another table where userid is a FK instead of querying every time
-
-# database requests
-@app.before_request
-def before_request():
-    g.db = connect_db()
-
-@app.teardown_request
-def teardown_request(exception):
-    db = getattr(g, 'db', None)
-    if db is not None:
-        db.close()
-
-
+    
 # routing (views)
 @app.route('/')
 def index():
@@ -125,16 +94,4 @@ def valEmail():
 		return jsonify(available='true')
 	else:
 		return jsonify(available='false')
-
-
-# error handling
-@app.errorhandler(401)
-def unauthorized(e):
-    return render_template('401.html'), 401
-
-
-# le boilerplate
-if __name__ == '__main__':
-    app.run()
-
 
