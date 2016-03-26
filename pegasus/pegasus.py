@@ -63,7 +63,7 @@ def register_user():
             g.db.execute('insert into users (username, password, email, name) values (?, ?, ?, ?)', [un, pw, em, request.form['name']])
             g.db.commit()
             login_user(un)
-            return redirect(url_for('show_list'))
+            return redirect(url_for('index'))
         except sqlite3.IntegrityError as e:
         	if e.args[0][32:] == 'email':
         		error = 'Email'
