@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import sqlite3
-from flask import Flask, request, session, g, redirect, url_for, abort, render_template, flash
+from flask import Flask, request, session, g, redirect, url_for, abort, render_template, flash, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from contextlib import closing
 
@@ -59,7 +59,8 @@ def register_user():
         try:
             pw = generate_password_hash(request.form['password'])
             un = request.form['username'].lower()
-            g.db.execute('insert into users (username, password, email, name) values (?, ?, ?, ?)', [un, pw, request.form['email'], request.form['name']])
+            em = request.form['email'].lower()
+            g.db.execute('insert into users (username, password, email, name) values (?, ?, ?, ?)', [un, pw, em, request.form['name']])
             g.db.commit()
             login_user(un)
             return redirect(url_for('show_list'))
@@ -106,7 +107,30 @@ def logout():
     flash('You go bye bye :(', 'warning')
     return redirect(url_for('show_list')) # always going there..
 
+# AJAX functions
+@app.route('/_validateUsername')
+def valUsername():
+	un = request.args.get('username', 0, type=str)
+	cur = g.db.execute('select id from users where username=?', [un.lower()]).fetchone()
+	if cur==None:
+		return jsonify(available='true')
+	else:
+		return jsonify(available='false')
 
+@app.route('/_validateEmail')
+def valEmail():
+	em = request.args.get('email', 0, type=str)
+	cur = g.db.execute('select id from users where email=?', [em.lower()]).fetchone()
+	if cur==None:
+		return jsonify(available='true')
+	else:
+		return jsonify(available='false')
+
+
+# error handling
+@app.errorhandler(401)
+def unauthorized(e):
+    return render_template('401.html'), 401
 
 
 # le boilerplate

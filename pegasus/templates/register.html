@@ -10,16 +10,16 @@
          <input type='text' class='form-control' id='name-form' name='name' placeholder='OPTIONAL'>
         </div>
         <div class='form-group'>
-         <label for='username-form'>Username</label>
+         <label for='username-form' id='username-label'>Username</label>
          <input type='text' class='form-control' id='username-form' name='username' placeholder='WILL BE VISIBLE TO EVERYONE' required>
         </div>
         <div class='form-group'>
-         <label for='email-form'>Email</label>
+         <label for='email-form' id='email-label'>Email</label>
          <input type='email' class='form-control' id='email-form' name='email' placeholder='ABC@XYZ.COM' required>
         </div>
         <div class='form-group'>
          <label for='password-form'>Password</label>
-         <input type='password' class='form-control' id='password-form' name='password' placeholder='GOING ONCE..' required>
+         <input type='password' class='form-control' id='password-form' name='password' placeholder='GOING ONCE..'  pattern=".{6,}" title='Password must be at least 6 characters long.' required>
         </div>
         <div class='form-group'>
          <label for='password-confirm-form' id='password-confirm-label'>Confirm password</label>
@@ -28,19 +28,80 @@
          <button type='submit' class='global-btn full-btn'>Register</button>
     </form>
     <script>
+      $(function() {
+        $('#username-form').bind('blur', function() {
+          $.getJSON($SCRIPT_ROOT + '/_validateUsername', {
+            username: $('input[name="username"]').val()
+          }, function(data) {
+            if(data.available == 'false'){
+              if($('#username-label').hasClass('available-username')){
+                $('#username-label').removeClass('available-username');
+              }
+              if(!$('#username-label').hasClass('error-confirm')){
+                $('#username-form').css('border-color', 'red');
+                $('#username-label').append('<span style="color:red;"> ! Username already in use</span>');
+                $('#username-label').addClass('error-confirm');
+              }
+            }else{
+              if($('#username-label').hasClass('error-confirm')){
+                $('#username-label').removeClass('error-confirm');
+              }
+              if(!$('#username-label').hasClass('available-username')){
+                $('#username-form').css('border-color', '#07C87F');
+                $('#username-label').html('Username');
+                $('#username-label').addClass('available-username');
+              }
+            }
+          });
+          return false;
+        });
+      });
+
+      $(function() {
+        $('#email-form').bind('blur', function() {
+          $.getJSON($SCRIPT_ROOT + '/_validateEmail', {
+            email: $('input[name="email"]').val()
+          }, function(data) {
+            if(data.available == 'false'){
+              if($('#email-label').hasClass('available-email')){
+                $('#email-label').removeClass('available-email');
+              }
+              if(!$('#email-label').hasClass('error-confirm')){
+                $('#email-form').css('border-color', 'red');
+                $('#email-label').append('<span style="color:red;"> ! Email already in use</span>');
+                $('#email-label').addClass('error-confirm');
+              }
+            }else{
+              if($('#email-label').hasClass('error-confirm')){
+                $('#email-label').removeClass('error-confirm');
+              }
+              if(!$('#email-label').hasClass('available-email')){
+                $('#email-form').css('border-color', '#07C87F');
+                $('#email-label').html('Email');
+                $('#email-label').addClass('available-email');
+              }
+            }
+          });
+          return false;
+        });
+      });
+
       function validateForm(){
         var form = document.forms['register-form'];
         var pw = form['password'].value;
         var pconfirm = form['password-confirm'].value;
-        if(pconfirm == pw) return true;
+        var pass;
+        if(pconfirm == pw) pass = true;
         else {
           if(!$('#password-confirm-label').hasClass('error-confirm')){
             $('#password-confirm-label').append('<span style="color:red;"> ! Passwords must match</span>');
             $('#password-confirm-form').css('border-color', 'red');
             $('#password-confirm-label').addClass('error-confirm');
           }
-          return false;
+          pass = false;
         }
+        if(pass==true && $('#username-label').hasClass('available-username') && $('#email-label').hasClass('available-email')) return true;
+        else return false;
       }
     </script>
 {% endblock %}

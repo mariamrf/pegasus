@@ -1,10 +1,15 @@
 <!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Pegasus</title>
+<link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
 <link href='https://fonts.googleapis.com/css?family=Titillium+Web:400,600' rel='stylesheet' type='text/css'>
 <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.5.0/css/font-awesome.min.css">
 <link rel='stylesheet' type='text/css' href="{{ url_for('static', filename='css/bootstrap.min.css')}}">
 <link rel='stylesheet' type='text/css' href="{{ url_for('static', filename='css/styles.css') }}">
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+<script>
+	$SCRIPT_ROOT = {{ request.script_root|tojson|safe }};
+</script>
 <div class='header container-fluid'>
 	<div class='row'>
 		<div class='col-xs-4'>
@@ -91,6 +96,7 @@
 <!--End Modals-->
 
 <!--Scripts-->
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+
 <script src="{{ url_for('static', filename='js/bootstrap.min.js')}}"></script>
+
 <!--End Scripts-->
