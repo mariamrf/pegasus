@@ -30,7 +30,7 @@ create table board_content (
 
 drop table if exists invites;
 create table invites (
-	id integer primary key autoincrement,
+	id text primary key, /* randomly generated string on the server */
 	boardID integer not null,
 	userEmail text not null,
 	invite_date datetime default current_timestamp,
