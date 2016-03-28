@@ -14,7 +14,7 @@ create table boards (
 	title text not null,
 	creatorID integer not null,
 	created_at datetime default current_timestamp,
-	done_at datetime, /* how are we going to set this to 'tomorrow'? */
+	done_at datetime, 
 	FOREIGN KEY(creatorID) REFERENCES users(id)
 );
 

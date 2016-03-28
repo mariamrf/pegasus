@@ -2,6 +2,7 @@ from pegasus import app
 import sqlite3
 from flask import request, session, g, redirect, url_for, abort, render_template, flash, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
+from datetime import datetime, timedelta
 
 
 # all the definitions
@@ -112,7 +113,8 @@ def create_board():
         try:
             uid = session.get('userid')
             title = request.form['title']
-            g.db.execute('insert into boards (creatorID, title) values (?, ?)', [uid, title])
+            done_at = datetime.utcnow() + timedelta(days=1)
+            g.db.execute('insert into boards (creatorID, title, done_at) values (?, ?, ?)', [uid, title, done_at])
             g.db.commit()
             return redirect(url_for('show_profile'))
         except sqlite3.Error as e:
@@ -122,19 +124,19 @@ def create_board():
 @app.route('/board/<boardID>')
 def show_board(boardID):
     # first, check if there's even a board
-    curB = g.db.execute('select title, created_at from boards where id=?', [boardID]).fetchone()
+    curB = g.db.execute('select title, created_at, done_at from boards where id=?', [boardID]).fetchone()
     if curB is None:
         abort(404)
     else:
         invite = request.args.get('invite') # ?invite=INVITE_ID
         if invite is None and is_authorized(boardID):
-            return render_template('show-board.html', title=curB[0], created_at=curB[1])
+            return render_template('show-board.html', title=curB[0], created_at=curB[1], done_at=curB[2])
         elif invite is not None:
             cur = g.db.execute('select userEmail from invites where id=? and boardID=?', [invite, boardID]).fetchone()
             if cur is None:
                 abort(401)
             else:
-                return render_template('show-board.html', title=curB[0], created_at=curB[1], email=cur[0])
+                return render_template('show-board.html', title=curB[0], created_at=curB[1], done_at=curB[2], email=cur[0])
         else:
             abort(401)
 
