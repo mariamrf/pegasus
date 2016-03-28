@@ -101,6 +101,13 @@ label{
 	color:#07C87F;
 }
 
+.board-btn{
+	background-color: #f39c12; /* GLOBAL ORANGE */
+}
+.board-btn:hover{
+	color:#f39c12;
+}
+
 .register-btn{
 	margin-right: 1em;
 }

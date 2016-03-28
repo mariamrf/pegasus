@@ -1,11 +1,18 @@
 from pegasus import app
 import sqlite3
+import random
+import string
 from flask import request, session, g, redirect, url_for, abort, render_template, flash, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 
 
+
 # all the definitions
+def get_random_string(length=64):
+    return ''.join(random.choice(string.ascii_letters + string.digits) for i in range(length))
+
+
 def login_user(username):
     session['logged_in'] = True
     session['username'] = username
@@ -14,6 +21,12 @@ def login_user(username):
     session['userid'] = uid # to register any info in another table where userid is a FK instead of querying every time
 
 
+def is_owner(boardID, userID):
+    cur = g.db.execute('select creatorID from boards where id=?', [boardID]).fetchone()[0]
+    if cur == userID:
+        return True
+    else:
+        return False
 
 def is_authorized(boardID):
     access = False
@@ -22,10 +35,7 @@ def is_authorized(boardID):
         # not counting in the invitation link logic here
         uid = session['userid']
         # are they the owner?
-        cur = g.db.execute('select creatorID from boards where id=?', [boardID]).fetchone()
-        # at this point we've made sure the board exists already
-        cid = cur[0]
-        if cid == uid:
+        if is_owner(boardID, uid):
             access = True
             isOwner = True
         else:
@@ -135,13 +145,13 @@ def show_board(boardID):
         invite = request.args.get('invite') # ?invite=INVITE_ID
         auth = is_authorized(boardID)
         if invite is None and auth['access']:
-            return render_template('show-board.html', title=curB[0], created_at=curB[1], done_at=curB[2], isOwner=auth['isOwner'])
+            return render_template('show-board.html', title=curB[0], created_at=curB[1], done_at=curB[2], isOwner=auth['isOwner'], boardID=boardID)
         elif invite is not None:
             cur = g.db.execute('select userEmail from invites where id=? and boardID=?', [invite, boardID]).fetchone()
             if cur is None:
                 abort(401)
             else:
-                return render_template('show-board.html', title=curB[0], created_at=curB[1], done_at=curB[2], email=cur[0])
+                return render_template('show-board.html', title=curB[0], created_at=curB[1], done_at=curB[2], email=cur[0], boardID=boardID)
         else:
             abort(401)
 
@@ -165,3 +175,20 @@ def valEmail():
     else:
         return jsonify(available='false')
 
+@app.route('/_inviteUser')
+def invite_user():
+    em = request.args.get('email', 0, type=str).lower()
+    ty = request.args.get('type', 0, type=str) # view or edit
+    b_id = request.args.get('boardID', 0, type=int)
+    user = session.get('userid')
+    inviteID = get_random_string()
+    error = 'none'
+    successful='false'
+    if is_owner(b_id, user):
+        try:
+            g.db.execute('insert into invites (id, userEmail, boardID, type) values (?, ?, ?, ?)', [inviteID, em, b_id, ty])
+            g.db.commit()
+            successful = 'true'
+        except sqlite3.IntegrityError as e:
+            error = 'This email has already been invited to this board.'
+    return jsonify(successful=successful, error=error)

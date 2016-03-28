@@ -36,5 +36,6 @@ create table invites (
 	invite_date datetime default current_timestamp,
 	type text check(type = 'view' or type = 'edit'),
 	FOREIGN KEY (boardID) REFERENCES boards(id)
+	UNIQUE (userEmail, boardID)
 	/*FOREIGN KEY (userEmail) REFERENCES users(email)*/ /* Removed constraint to invite people who don't have accounts yet, if a user were to change their email in their account cascading would have to be done manually */
 );

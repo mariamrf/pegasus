@@ -47,7 +47,9 @@
 				{% if not session.logged_in %}
 					<a href="{{ url_for('register_user') }}" class='register-btn'>Register</a><button class='global-btn' data-toggle='modal' data-target='#loginModal'>Login</button>
 				{% else %}
+					{% block controllers %}
 					<button class='global-btn register-btn' title='Create Board' data-toggle='modal' data-target='#newBoardModal'><i class='fa fa-plus'></i></button>
+					{% endblock %}
 					<button class='global-btn register-btn' title='Your profile' onclick="location.href='/profile';"><i class='fa fa-user'></i></button>
 					<a href="{{ url_for('logout') }}">Log Out</a>
 				{% endif %}
@@ -98,6 +100,7 @@
 		</div>
 		<!--End Login-->
 		{% else %}
+		{% block controller_modals %}
 		<!--New Board-->
 		<div class="modal fade" id="newBoardModal" tabindex="-1" role="dialog" aria-labelledby="newBoardLabel">
 		  <div class="modal-dialog" role="document">
@@ -119,6 +122,7 @@
 		  </div>
 		</div>
 		<!--End New Board-->
+		{% endblock %}
 		{% endif %}
 		<!--End Modals-->
 

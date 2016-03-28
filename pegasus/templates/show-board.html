@@ -1,7 +1,76 @@
 {% extends 'layout.html' %}
+{% block controllers %}
+{% if isOwner %}
+	<button class='global-btn register-btn board-btn' title='Invite Others' data-toggle='modal' data-target='#inviteModal'><i class='fa fa-envelope'></i></button>
+
+{% endif %}
+{% endblock %}
 {% block content %}
 	<h2>{{title}}<small> Created at: {{created_at}}. Done at: {{done_at}}</small></h2>
 	{% if not session.logged_in %}<p class='text-center'>Welcome, {{email}}! You've been invited!</p>{% endif %}
 	{% if isOwner %}You're the owner!{% endif %}
 	
+{% endblock %}
+{% block controller_modals %}
+{% if isOwner %}
+<!--Invite To Board-->
+		<div class="modal fade" id="inviteModal" tabindex="-1" role="dialog" aria-labelledby="inviteLabel">
+		  <div class="modal-dialog" role="document">
+		    <div class="modal-content">
+		      <div class="modal-header">
+		        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+		        <h4 class="modal-title" id="inviteLabel">Invite By Email</h4>
+		      </div>
+		      <div class="modal-body">
+				  <form id='invite-form'> <!--CHANGE-->
+				  	<div class='form-group'>
+				     <label for='email-modal'>Email</label>
+				     <input type='email' class='form-control' id='email-modal' name='email'  placeholder='ENTER THEIR EMAIL' required>
+				    </div>
+				    <div class='form-group'>
+					     <label for='type-modal'>Permission</label>
+					     <div id='type-modal'>
+					     	<div class="radio-inline">
+							  <label><input type="radio" name="type" value='view' required>View only</label>
+							</div>
+							<div class="radio-inline">
+							  <label><input type="radio" name="type" value='edit' required>Edit</label>
+							</div>
+						</div>
+				    </div>
+				     <button type='submit' class='global-btn full-btn' id='invite-button'>Invite</button>
+				  </form>
+		      </div>
+		    </div>
+		  </div>
+		</div>
+		<!--End New Board-->
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>
+	$(function() {
+        $('#invite-form').bind('submit', function() {
+          $('#invite-msg').remove(); // if there were any previous errors
+          $.getJSON($SCRIPT_ROOT + '/_inviteUser', {
+            email: $('input[name="email"]').val(),
+            type: $('input[name="type"]:checked').val(),
+            boardID: {{ boardID }}
+          }, function(data) {
+            if(data.successful == 'true'){
+            	$('#inviteModal .modal-body').prepend('<div class="alert alert-success" id="invite-msg" role="alert">Successfully invited!</div>');
+            	document.getElementById("invite-form").reset();
+            }else{
+            	$('#inviteModal .modal-body').prepend('<div class="alert alert-warning" id="invite-msg" role="alert">'+data.error+'</div>')
+            }
+          });
+          return false;
+        });
+
+        $("#inviteModal").on("hidden.bs.modal", function(){
+        	 document.getElementById("invite-form").reset();
+   			 $('#invite-msg').remove();
+		});
+      });
+</script>
 {% endblock %}
