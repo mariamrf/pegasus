@@ -4,12 +4,35 @@ from flask import request, session, g, redirect, url_for, abort, render_template
 from werkzeug.security import generate_password_hash, check_password_hash
 
 
+# all the definitions
 def login_user(username):
     session['logged_in'] = True
     session['username'] = username
     cur = g.db.execute('select id from users where username=?', [username]).fetchone()
     uid = cur[0]
     session['userid'] = uid # to register any info in another table where userid is a FK instead of querying every time
+
+def is_authorized(boardID):
+    if not session.get('logged_in'):
+        return False # not counting in the invitation link logic here
+    else:
+        uid = session['userid']
+        # are they the owner?
+        cur = g.db.execute('select creatorID from boards where id=?', [boardID]).fetchone()
+        # at this point we've made sure the board exists already
+        cid = cur[0]
+        if cid == uid:
+            return True
+        else:
+            uemail = g.db.execute('select email from users where id=?', [uid]).fetchone()[0]
+            cur2 = g.db.execute('select id from invites where boardID=? and userEmail=?', [boardID, uemail]).fetchone()
+            if cur2 is None:
+                return False
+            else:
+                return True
+
+
+
     
 # routing (views)
 @app.route('/')
@@ -49,7 +72,7 @@ def login():
     if request.method == 'POST':
         cur = g.db.execute('select username, password from users where username=?', [request.form['username'].lower()])
         cur_res = cur.fetchone()
-        if cur_res == None:
+        if cur_res is None:
             error = 'Invalid username'
         else:
             username = cur_res[0]
@@ -95,6 +118,25 @@ def create_board():
         except sqlite3.Error as e:
             error = 'An error occured: ' + e.args[0]
     return render_template('new-board.html', error=error)
+
+@app.route('/board/<boardID>')
+def show_board(boardID):
+    # first, check if there's even a board
+    curB = g.db.execute('select title, created_at from boards where id=?', [boardID]).fetchone()
+    if curB is None:
+        abort(404)
+    else:
+        invite = request.args.get('invite') # ?invite=INVITE_ID
+        if invite is None and is_authorized(boardID):
+            return render_template('show-board.html', title=curB[0], created_at=curB[1])
+        elif invite is not None:
+            cur = g.db.execute('select userEmail from invites where id=? and boardID=?', [invite, boardID]).fetchone()
+            if cur is None:
+                abort(401)
+            else:
+                return render_template('show-board.html', title=curB[0], created_at=curB[1], email=cur[0])
+        else:
+            abort(401)
 
 
 # AJAX functions

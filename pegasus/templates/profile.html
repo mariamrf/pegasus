@@ -7,7 +7,7 @@
 	<h4>Boards:</h4>
 	<ul>
 	{% for board in boards %}
-		<li><a href="{{board.id}}">{{board.title}}</a></li> <!--Temp link until there's a url_for('show_board')-->
+		<li><a href="{{ url_for('show_board', boardID=board.id) }}">{{board.title}}</a></li>
 	{% else %}
 		<li>You haven't created any boards yet!</li>
 	{% endfor %}

@@ -1,0 +1,6 @@
+{% extends 'layout.html' %}
+{% block content %}
+	<h2>{{title}}<small> Created at: {{created_at}}</small></h2>
+	{% if not session.logged_in %}<p class='text-center'>Welcome, {{email}}! You've been invited!</p>{% endif %}
+	
+{% endblock %}
