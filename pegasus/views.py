@@ -13,24 +13,28 @@ def login_user(username):
     uid = cur[0]
     session['userid'] = uid # to register any info in another table where userid is a FK instead of querying every time
 
+
+
 def is_authorized(boardID):
-    if not session.get('logged_in'):
-        return False # not counting in the invitation link logic here
-    else:
+    access = False
+    isOwner = False
+    if session.get('logged_in'):
+        # not counting in the invitation link logic here
         uid = session['userid']
         # are they the owner?
         cur = g.db.execute('select creatorID from boards where id=?', [boardID]).fetchone()
         # at this point we've made sure the board exists already
         cid = cur[0]
         if cid == uid:
-            return True
+            access = True
+            isOwner = True
         else:
             uemail = g.db.execute('select email from users where id=?', [uid]).fetchone()[0]
             cur2 = g.db.execute('select id from invites where boardID=? and userEmail=?', [boardID, uemail]).fetchone()
-            if cur2 is None:
-                return False
-            else:
-                return True
+            if cur2 is not None:
+                access = True
+    return {'access':access, 'isOwner':isOwner}
+
 
 
 
@@ -129,8 +133,9 @@ def show_board(boardID):
         abort(404)
     else:
         invite = request.args.get('invite') # ?invite=INVITE_ID
-        if invite is None and is_authorized(boardID):
-            return render_template('show-board.html', title=curB[0], created_at=curB[1], done_at=curB[2])
+        auth = is_authorized(boardID)
+        if invite is None and auth['access']:
+            return render_template('show-board.html', title=curB[0], created_at=curB[1], done_at=curB[2], isOwner=auth['isOwner'])
         elif invite is not None:
             cur = g.db.execute('select userEmail from invites where id=? and boardID=?', [invite, boardID]).fetchone()
             if cur is None:
