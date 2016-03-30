@@ -33,7 +33,7 @@
     <script>
       $(function() {
         $('#username-form').bind('blur', function() {
-          $.getJSON($SCRIPT_ROOT + '/_validateUsername', {
+          $.getJSON({{ url_for('valUsername') |tojson|safe }}, {
             username: $('input[name="username"]').val()
           }, function(data) {
             if(data.available == 'false'){
@@ -62,7 +62,7 @@
 
       $(function() {
         $('#email-form').bind('blur', function() {
-          $.getJSON($SCRIPT_ROOT + '/_validateEmail', {
+          $.getJSON({{ url_for('valEmail') |tojson|safe }}, {
             email: $('input[name="email"]').val()
           }, function(data) {
             if(data.available == 'false'){

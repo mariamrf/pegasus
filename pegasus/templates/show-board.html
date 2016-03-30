@@ -52,7 +52,7 @@
 	$(function() {
         $('#invite-form').bind('submit', function() {
           $('#invite-msg').remove(); // if there were any previous errors
-          $.getJSON($SCRIPT_ROOT + '/_inviteUser', {
+          $.getJSON({{ url_for('invite_user')|tojson|safe }}, {
             email: $('input[name="email"]').val(),
             type: $('input[name="type"]:checked').val(),
             boardID: {{ boardID }}

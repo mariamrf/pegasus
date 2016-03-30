@@ -129,9 +129,6 @@
 		<!--Scripts-->
 		<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
 		<script src="{{ url_for('static', filename='js/bootstrap.min.js')}}"></script>
-		<script>
-			$SCRIPT_ROOT = {{ request.script_root|tojson|safe }};
-		</script>
 		{% block scripts %}
 		{% endblock %}
 		<!--End Scripts-->
