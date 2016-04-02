@@ -1,7 +1,8 @@
 from pegasus import app
 import sqlite3
-import random
+import uuid
 import string
+import random
 from flask import request, session, g, redirect, url_for, abort, render_template, flash, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
@@ -9,9 +10,15 @@ from datetime import datetime, timedelta
 
 
 # all the definitions
-def get_random_string(length=64):
-    return ''.join(random.choice(string.ascii_letters + string.digits) for i in range(length))
+def get_random_string(length=32):
+     return ''.join(random.choice(string.ascii_letters + string.digits) for i in range(length))
 
+def generate_csrf_token():
+    if '_csrf_token' not in session:
+        session['_csrf_token'] = get_random_string()
+    return session['_csrf_token']
+
+app.jinja_env.globals['csrf_token'] = generate_csrf_token
 
 def login_user(username):
     session['logged_in'] = True
@@ -177,11 +184,15 @@ def valEmail():
 
 @app.route('/_inviteUser')
 def invite_user():
+    csrf = request.args.get('_csrf_token', 0, type=str)
+    token = session.pop('_csrf_token', None)
+    if not token or token != csrf:
+        abort(400)
     em = request.args.get('email', 0, type=str).lower()
     ty = request.args.get('type', 0, type=str) # view or edit
     b_id = request.args.get('boardID', 0, type=int)
     user = session.get('userid')
-    inviteID = get_random_string()
+    inviteID = uuid.uuid4().hex
     error = 'none'
     successful='false'
     if is_owner(b_id, user):
@@ -191,4 +202,8 @@ def invite_user():
             successful = 'true'
         except sqlite3.IntegrityError as e:
             error = 'This email has already been invited to this board.'
-    return jsonify(successful=successful, error=error)
+        except sqlite3.Error as e: # for debugging
+            error = e.args[0]
+        finally:
+            new_token = generate_csrf_token()
+    return jsonify(successful=successful, error=error, token=new_token)

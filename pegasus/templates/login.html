@@ -5,6 +5,7 @@
   <div class='alert alert-danger' role='alert'> {{ error }} </div>
   {% endif %}
    <form action="{{ url_for('login') }}" method='post'>
+        <input name='_csrf_token' type='hidden' value="{{ csrf_token() }}">
         <div class='form-group'>
          <label for='username-form'>Username</label>
          <input type='text' class='form-control' id='username-form' name='username' required>

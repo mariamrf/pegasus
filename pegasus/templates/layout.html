@@ -84,6 +84,7 @@
 		      </div>
 		      <div class="modal-body">
 				  <form action="{{ url_for('login') }}" method='post'>
+				  	<input name='_csrf_token' type='hidden' value="{{ csrf_token() }}">
 				  	<div class='form-group'>
 				     <label for='username-modal'>Username</label>
 				     <input type='text' class='form-control' id='username-modal' name='username'  placeholder='NOT YOUR EMAIL' required>
@@ -111,6 +112,7 @@
 		      </div>
 		      <div class="modal-body">
 				  <form action="{{ url_for('create_board') }}" method='post'>
+				  	<input name='_csrf_token' type='hidden' value="{{ csrf_token() }}">
 				  	<div class='form-group'>
 				     <label for='title-modal'>Title</label>
 				     <input type='text' class='form-control' id='title-modal' name='title'  placeholder='SOMETHING DESCRIPTIVE' required>

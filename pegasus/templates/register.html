@@ -5,6 +5,7 @@
    <div class='alert alert-danger' role='alert'> {{ error }} </div>
   {% endif %}
    <form action="{{ url_for('register_user') }}" name='register-form' method='post' onsubmit='return validateForm()'>
+        <input name='_csrf_token' type='hidden' value="{{ csrf_token() }}">
         <div class='form-group'>
          <label for='name-form'>Name</label>
          <input type='text' class='form-control' id='name-form' name='name' placeholder='OPTIONAL'>

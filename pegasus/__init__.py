@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import sqlite3
-from flask import Flask, g
+from flask import Flask, g, request, session, abort
 from contextlib import closing
 
 # config (which should be in another file for larger apps)
@@ -26,10 +26,19 @@ def init_db():
             db.cursor().executescript(f.read())
         db.commit()
 
+
+
 # database requests
 @app.before_request
 def before_request():
     g.db = connect_db()
+
+@app.before_request
+def csrf_protect():
+	if request.method == 'POST': # GET/ajax protection can be defined in their respective functions
+		token = session.pop('_csrf_token', None)
+		if not token or token != request.form.get('_csrf_token'):
+			abort(400) 
 
 @app.teardown_request
 def teardown_request(exception):

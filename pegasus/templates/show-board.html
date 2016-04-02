@@ -23,6 +23,7 @@
 		      </div>
 		      <div class="modal-body">
 				  <form id='invite-form'> <!--CHANGE-->
+				  	<input name='_csrf_token' type='hidden' value="{{ csrf_token() }}">
 				  	<div class='form-group'>
 				     <label for='email-modal'>Email</label>
 				     <input type='email' class='form-control' id='email-modal' name='email'  placeholder='ENTER THEIR EMAIL' required>
@@ -55,6 +56,7 @@
           $.getJSON({{ url_for('invite_user')|tojson|safe }}, {
             email: $('input[name="email"]').val(),
             type: $('input[name="type"]:checked').val(),
+            _csrf_token: $('input[name="_csrf_token"]').val(),
             boardID: {{ boardID }}
           }, function(data) {
             if(data.successful == 'true'){
@@ -63,6 +65,7 @@
             }else{
             	$('#inviteModal .modal-body').prepend('<div class="alert alert-warning" id="invite-msg" role="alert">'+data.error+'</div>')
             }
+            $('input[name="_csrf_token"]').val(data.token)
           });
           return false;
         });
