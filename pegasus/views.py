@@ -168,7 +168,7 @@ def show_board(boardID):
 def valUsername():
     un = request.args.get('username', 0, type=str)
     cur = g.db.execute('select id from users where username=?', [un.lower()]).fetchone()
-    if cur==None:
+    if cur is None:
         return jsonify(available='true')
     else:
         return jsonify(available='false')
