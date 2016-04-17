@@ -1,18 +1,42 @@
 {% extends 'layout.html' %}
 {% block controllers %}
 {% if isOwner %}
+	<button class='global-btn register-btn board-btn' title='Edit Board' data-toggle='modal' data-target='#editModal'><i class='fa fa-pencil'></i></button>
 	<button class='global-btn register-btn board-btn' title='Invite Others' data-toggle='modal' data-target='#inviteModal'><i class='fa fa-envelope'></i></button>
 
 {% endif %}
 {% endblock %}
 {% block content %}
-	<h2>{{title}}<small> Created at: {{created_at}}. Done at: {{done_at}}</small></h2>
+	<h2><span id='board-title'>{{title}}</span><small> Created at: {{created_at}}. Done at: {{done_at}}</small></h2>
 	{% if not session.logged_in %}<p class='text-center'>Welcome, {{email}}! You've been invited!</p>{% endif %}
 	{% if isOwner %}You're the owner!{% endif %}
 	
 {% endblock %}
 {% block controller_modals %}
 {% if isOwner %}
+<!--Edit Board-->
+		<div class="modal fade" id="editModal" tabindex="-1" role="dialog" aria-labelledby="editLabel">
+		  <div class="modal-dialog" role="document">
+		    <div class="modal-content">
+		      <div class="modal-header">
+		        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+		        <h4 class="modal-title" id="editLabel">Edit Board</h4>
+		      </div>
+		      <div class="modal-body">
+				  <form id='edit-board-form'> <!--CHANGE-->
+				  	<input name='_csrf_token' type='hidden' value="{{ csrf_token() }}">
+				  	<input name='boardID' type='hidden' value="{{ boardID }}">
+				  	<div class='form-group'>
+				     <label for='title-modal'>Title</label>
+				     <input type='text' class='form-control' id='title-modal' name='title' value='{{ title }}' required>
+				    </div>
+				     <button type='submit' class='global-btn full-btn' id='edit-button'>Save</button>
+				  </form>
+		      </div>
+		    </div>
+		  </div>
+		</div>
+		<!--End Edit Board-->
 <!--Invite To Board-->
 		<div class="modal fade" id="inviteModal" tabindex="-1" role="dialog" aria-labelledby="inviteLabel">
 		  <div class="modal-dialog" role="document">
@@ -45,7 +69,9 @@
 		    </div>
 		  </div>
 		</div>
-		<!--End New Board-->
+		<!--End Invite To Board-->
+
+
 {% endif %}
 {% endblock %}
 {% block scripts %}
@@ -65,7 +91,7 @@
             }else{
             	$('#inviteModal .modal-body').prepend('<div class="alert alert-warning" id="invite-msg" role="alert">'+data.error+'</div>')
             }
-            $('input[name="_csrf_token"]').val(data.token)
+            $('input[name="_csrf_token"]').val(data.token) // replace all tokens in page
           });
           return false;
         });
@@ -74,6 +100,27 @@
         	 document.getElementById("invite-form").reset();
    			 $('#invite-msg').remove();
 		});
+
+		$('#edit-board-form').bind('submit', function(event){
+			event.preventDefault();
+			$('#edit-msg').remove(); // if there were any previous errors
+			var data = $(this).serialize();
+			$.post({{ url_for('edit_board') |tojson|safe }}, data, function(data){
+				if(data.error != 'None'){
+					$('#editModal .modal-body').prepend('<div class="alert alert-warning" id="edit-msg" role="alert">' + data.error +'</div>');
+            	document.getElementById("edit-board-form").reset();
+				}
+				else
+					$('#editModal .modal-body').prepend('<div class="alert alert-success" id="edit-msg" role="alert">Successfully changed!</div>');
+					var newTitle = $('#title-modal').val();
+					$('#board-title').text(newTitle);
+					// set new csrf token here
+			});
+		});
       });
+	$("#editModal").on("hidden.bs.modal", function(){
+        	 document.getElementById("edit-board-form").reset();
+   			 $('#edit-msg').remove();
+		});
 </script>
 {% endblock %}

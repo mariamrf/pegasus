@@ -60,7 +60,7 @@ def is_authorized(boardID):
 @app.route('/')
 def index():
     if session.get('logged_in'):
-        email = g.db.execute('select email from users where id=?', [session['userid']]).fetchone()[0]
+        email = g.db.execute('select email from users where id=?', [session['userid']]).fetchone()[0].lower()
         cur2 = g.db.execute('select id, title from boards where id in (select boardID from invites where userEmail=?)', [email]).fetchall()
         invitedLi = [dict(id=row[0], title=row[1]) for row in cur2]
         return render_template('show_list.html', invitedBoards=invitedLi)
@@ -186,6 +186,24 @@ def valEmail():
         return jsonify(available='true')
     else:
         return jsonify(available='false')
+
+@app.route('/_editBoard', methods=['POST'])
+def edit_board():
+    if not session.get('logged_in'):
+        abort(401)
+    else: # is logged in
+        error = 'None'
+        # csrf = request.form['_csrf_token']
+        # token = session.pop('_csrf_token', None)
+        # if not token or token != csrf:
+           # abort(401)
+        try:
+            g.db.execute('update boards set title=? where id=? and creatorID=?', [request.form['title'], int(request.form['boardID']), session['userid']])
+            g.db.commit()
+        except sqlite3.Error as e: # not the creator
+            error = e.args[0]
+        return jsonify(error=error) # and new CSRF token to be used again
+
 
 @app.route('/_inviteUser')
 def invite_user():
