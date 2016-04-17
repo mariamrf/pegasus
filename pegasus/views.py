@@ -59,10 +59,15 @@ def is_authorized(boardID):
 # routing (views)
 @app.route('/')
 def index():
-    cur = g.db.execute('select username, join_date from users order by id')
-    li = [dict(username=row[0], jdate=row[1]) for row in cur.fetchall()]
-    # li = [{'name': 'hello'}, {'name': 'hi'}]
-    return render_template('show_list.html', li=li)
+    if session.get('logged_in'):
+        email = g.db.execute('select email from users where id=?', [session['userid']]).fetchone()[0]
+        cur2 = g.db.execute('select id, title from boards where id in (select boardID from invites where userEmail=?)', [email]).fetchall()
+        invitedLi = [dict(id=row[0], title=row[1]) for row in cur2]
+        return render_template('show_list.html', invitedBoards=invitedLi)
+    else:
+        cur = g.db.execute('select username, join_date from users order by id')
+        li = [dict(username=row[0], jdate=row[1]) for row in cur.fetchall()]
+        return render_template('show_list.html', li=li)
 
 @app.route('/register', methods=['GET', 'POST'])
 def register_user():

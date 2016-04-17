@@ -1,5 +1,15 @@
 {% extends 'layout.html' %}
 {% block content %}
+	{% if session.logged_in %}
+	<h2>Boards You're Invited To</h2>
+	<ul class='li'>
+		{% for board in invitedBoards %}
+			<li><a href="{{ url_for('show_board', boardID=board.id) }}">{{ board.title }}</a></li>
+		{% else %}
+			<li>You haven't been invited to any boards yet!</li>
+		{% endfor %}
+	</ul>
+	{% else %}
 	<h2>All Users</h2>
 	<ul class='li'>
 		{% for item in li %}
@@ -8,4 +18,5 @@
 			<li>No users yet! Add user.</li>
 		{% endfor %}
 	</ul>
+	{% endif %}
 {% endblock %}
