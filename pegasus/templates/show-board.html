@@ -121,7 +121,8 @@
       });
 	$("#editModal").on("hidden.bs.modal", function(){
         	 document.getElementById("edit-board-form").reset();
-        	 $('#title-modal').val(newTitle);
+        	 var nt = $('#board-title').text();
+        	 $('#title-modal').val(nt);
    			 $('#edit-msg').remove();
 		});
 </script>

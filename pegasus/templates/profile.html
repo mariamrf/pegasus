@@ -1,5 +1,6 @@
 {% extends 'layout.html' %}
 {% block controllers %}
+	<button class='global-btn register-btn board-btn' title='Change Password' data-toggle='modal' data-target='#editPasswordModal'><i class='fa fa-lock'></i></button>
 	<button class='global-btn register-btn board-btn' title='Edit Profile' data-toggle='modal' data-target='#editProfileModal'><i class='fa fa-pencil'></i></button>
 	{{ super() }}
 {% endblock %}
@@ -18,6 +19,36 @@
 	</ul>
 {% endblock %}
 {% block controller_modals %}
+<!--Edit Password-->
+		<div class="modal fade" id="editPasswordModal" tabindex="-1" role="dialog" aria-labelledby="editPasswordLabel">
+		  <div class="modal-dialog" role="document">
+		    <div class="modal-content">
+		      <div class="modal-header">
+		        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+		        <h4 class="modal-title" id="editPasswordLabel">Change Password</h4>
+		      </div>
+		      <div class="modal-body">
+				  <form id='edit-password-form'>
+				  	<input name='_csrf_token' type='hidden' value="{{ csrf_token() }}">
+				  	<div class='form-group'>
+				     <label for='password-modal'>Old Password</label>
+				     <input type='password' class='form-control' id='old-password-modal' name='old-password' placeholder='JUST TO CHECK' required>
+				    </div>
+				  	<div class='form-group'>
+				     <label for='password-modal'>New Password</label>
+				     <input type='password' pattern=".{6,}" class='form-control' id='password-modal' name='password' title='Password must be at least 6 characters.' placeholder='GOING ONCE...' required>
+				    </div>
+				    <div class='form-group'>
+				     <label for='password2-modal'>New Password (again)</label>
+				     <input type='password' class='form-control' id='password2-modal' name='password2' placeholder="GOING TWICE..." required>
+				    </div>
+				     <button type='submit' class='global-btn full-btn' id='edit-password-button'>Save</button>
+				  </form>
+		      </div>
+		    </div>
+		  </div>
+		</div>
+		<!--End Edit Password-->
 	<!--Edit Profile-->
 		<div class="modal fade" id="editProfileModal" tabindex="-1" role="dialog" aria-labelledby="editProfileLabel">
 		  <div class="modal-dialog" role="document">
@@ -35,7 +66,7 @@
 				    </div>
 				    <div class='form-group'>
 				     <label for='name-modal'>Name</label>
-				     <input type='text' class='form-control' id='name-modal' name='name' value='{{ name }}'>
+				     <input type='text' class='form-control' id='name-modal' name='name' value='{{ name }}' placeholder="HI, WHAT'S YOUR NAME?">
 				    </div>
 				    <div class='form-group'>
 				     <label for='email-modal'>Email</label>
@@ -47,7 +78,7 @@
 		    </div>
 		  </div>
 		</div>
-		<!--End Edit Board-->
+		<!--End Edit Profile-->
 {% endblock %}
 {% block scripts %}
 <script>
@@ -71,11 +102,46 @@
 					$('#profile-username').text(newUsername);
 				}
 				$("input[name='_csrf_token']").val(data.token);
-			});
+			}); 
 
 		});
+			$("#editProfileModal").on("hidden.bs.modal", function(){
+        	 document.getElementById("edit-profile-form").reset();
+        	 var newUsername = $('#profile-username').text();
+        	 var newEmail = $('#profile-email').text();
+        	 var newName = $('#profile-name').text();
+        	 $('#name-modal').val(newName);
+        	 $('#email-modal').val(newEmail);
+        	 $('#username-modal').val(newUsername);
+   			 $('#edit-profile-msg').remove();
+		});
+		// CHANGE PASSWORD
+		$('#edit-password-form').bind('submit', function(event){
+			event.preventDefault();
+			$('#edit-password-msg').remove();
+			var p1 = $('#password-modal').val();
+			var p2 = $('#password2-modal').val();
+			if(p1!=p2){
+				$('#editPasswordModal .modal-body').prepend('<div class="alert alert-warning" id="edit-password-msg" role="alert"> Passwords don\'t match.</div>');
+			}
+			else{
+				var d = $(this).serialize();
+				$.post({{ url_for('change_password') |tojson|safe }}, d, function(data){
+					if(data.error=='None'){
+						$('#editPasswordModal .modal-body').prepend('<div class="alert alert-success" id="edit-password-msg" role="alert"> Successfully changed! </div>');
+					}
+					else{
+						$('#editPasswordModal .modal-body').prepend('<div class="alert alert-warning" id="edit-password-msg" role="alert">'+data.error+'</div>');
+					}
+					$("input[name='_csrf_token'").val(data.token);
+				});
+			}
+		});
 
-		
+		$("#editPasswordModal").on("hidden.bs.modal", function(){
+        	 document.getElementById("edit-password-form").reset();
+   			 $('#edit-password-msg').remove();
+		});
 	});
 </script>
 {% endblock %}

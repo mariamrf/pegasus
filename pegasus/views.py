@@ -245,6 +245,25 @@ def edit_profile():
                     error = e.args[0]
         return jsonify(error=error, token=new_token)
 
+@app.route('/_changePassword', methods=['POST'])
+def change_password(): 
+    if not session.get('logged_in'):
+        abort(401)
+    else:
+        error = 'None'
+        new_token = generate_csrf_token()
+        password = generate_password_hash(request.form['password'])
+        pw = g.db.execute('select password from users where id=?', [session['userid']]).fetchone()[0]
+        if not check_password_hash(pw, request.form['old-password']):
+            error = 'Old password you entered is incorrect.'
+        else: 
+            try:
+                g.db.execute('update users set password=? where id=?', [password, session['userid']])
+                g.db.commit()
+            except sqlite3.Error as e:
+                error = e.args[0]
+        return jsonify(error=error, token=new_token)
+
 
 @app.route('/_inviteUser', methods=['POST'])
 def invite_user():
