@@ -169,6 +169,7 @@ def show_board(boardID):
 
 
 # AJAX functions
+## GET
 @app.route('/_validateUsername')
 def valUsername():
     un = request.args.get('username', 0, type=str)
@@ -182,11 +183,13 @@ def valUsername():
 def valEmail():
     em = request.args.get('email', 0, type=str)
     cur = g.db.execute('select id from users where email=?', [em.lower()]).fetchone()
-    if cur==None:
+    if cur is None:
         return jsonify(available='true')
     else:
         return jsonify(available='false')
 
+
+## POST
 @app.route('/_editBoard', methods=['POST'])
 def edit_board():
     if not session.get('logged_in'):
@@ -200,6 +203,47 @@ def edit_board():
         except sqlite3.Error as e:
             error = e.args[0]
         return jsonify(error=error, token=new_token) # and new CSRF token to be used again
+
+@app.route('/_editProfile', methods=['POST'])
+def edit_profile():
+    if not session.get('logged_in'):
+        abort(401)
+    else:
+        error = 'None'
+        new_token = generate_csrf_token()
+        cur = g.db.execute('select name, email, username from users where id=?', [session['userid']]).fetchone()
+        old_name = cur[0]
+        old_email = cur[1]
+        old_username = cur[2]
+        em = request.form['email'].lower()
+        un = request.form['username'].lower()
+        name = request.form['name']
+        # first, check availability
+        okay = True
+        cur1 = g.db.execute('select id from users where email=?', [em]).fetchone()
+        cur2 = g.db.execute('select id from users where username=?', [un]).fetchone()
+        if cur1 is not None:
+            if cur1[0] != session['userid']:
+                okay = False
+                error = 'Email is not available.'
+        if cur2 is not None:
+            if cur2[0] != session['userid']:
+                okay = False
+                if error == 'None':
+                    error = 'Username is not available.'
+                else:
+                    error+='Username is not available.'
+        if okay:
+            if old_name != name or old_email != em or old_username != un: # only proceed if any changes were made
+                try:
+                    old_em = g.db.execute('select email from users where id=?', [session['userid']]).fetchone()[0].lower()
+                    g.db.execute('update users set name=?, email=?, username=? where id=?', [name, em, un, session['userid']])
+                    session['username'] = un;
+                    g.db.execute('update invites set userEmail=? where userEmail=?', [em, old_em])
+                    g.db.commit()
+                except sqlite3.Error as e:
+                    error = e.args[0]
+        return jsonify(error=error, token=new_token)
 
 
 @app.route('/_inviteUser', methods=['POST'])

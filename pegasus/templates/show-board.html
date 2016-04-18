@@ -75,7 +75,7 @@
 {% endif %}
 {% endblock %}
 {% block scripts %}
-<script>
+<script> // keeping it here because jinja-rendered urls below, for now.
 	$(function() {
         $('#invite-form').bind('submit', function() {
           $('#invite-msg').remove(); // if there were any previous errors
