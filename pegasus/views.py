@@ -156,14 +156,18 @@ def show_board(boardID):
     else:
         invite = request.args.get('invite') # ?invite=INVITE_ID
         auth = is_authorized(boardID)
+        done_at = datetime.strptime(curB[2], '%Y-%m-%d %H:%M:%S.%f')
+        isDone = False
+        if(done_at < datetime.utcnow()):
+            isDone = True
         if invite is None and auth['access']:
-            return render_template('show-board.html', title=curB[0], created_at=curB[1], done_at=curB[2], isOwner=auth['isOwner'], boardID=boardID)
+            return render_template('show-board.html', isDone=isDone, title=curB[0], created_at=curB[1], done_at=curB[2], isOwner=auth['isOwner'], boardID=boardID)
         elif invite is not None:
             cur = g.db.execute('select userEmail from invites where id=? and boardID=?', [invite, boardID]).fetchone()
             if cur is None:
                 abort(401)
             else:
-                return render_template('show-board.html', title=curB[0], created_at=curB[1], done_at=curB[2], email=cur[0], boardID=boardID)
+                return render_template('show-board.html', isDone=isDone, title=curB[0], created_at=curB[1], done_at=curB[2], email=cur[0], boardID=boardID)
         else:
             abort(401)
 
@@ -264,6 +268,24 @@ def change_password():
                 error = e.args[0]
         return jsonify(error=error, token=new_token)
 
+@app.route('/_markDone', methods=['POST'])
+def mark_done():
+    if not session.get('logged_in'):
+        abort(401)
+    else:
+        error = 'None'
+        new_token = generate_csrf_token()
+        done_at = datetime.utcnow()
+        bid = int(request.form['boardID'])
+        old_done_at = datetime.strptime(g.db.execute('select done_at from boards where id=?', [bid]).fetchone()[0], '%Y-%m-%d %H:%M:%S.%f')
+        if old_done_at < done_at:
+            abort(400)
+        try:
+            g.db.execute('update boards set done_at=? where id=? and creatorID=?', [done_at, bid, session['userid']])
+            g.db.commit()
+        except sqlite3.Error as e:
+            error = e.args[0]
+        return jsonify(error=error, token=new_token)
 
 @app.route('/_inviteUser', methods=['POST'])
 def invite_user():

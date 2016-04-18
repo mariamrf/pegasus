@@ -1,6 +1,9 @@
 {% extends 'layout.html' %}
 {% block controllers %}
 {% if isOwner %}
+	{% if not isDone %}
+	<button class='global-btn register-btn board-btn' title='Mark As Done' data-toggle='modal' data-target='#markAsDoneModal'><i class='fa fa-check'></i></button>
+	{% endif %}
 	<button class='global-btn register-btn board-btn' title='Edit Board' data-toggle='modal' data-target='#editModal'><i class='fa fa-pencil'></i></button>
 	<button class='global-btn register-btn board-btn' title='Invite Others' data-toggle='modal' data-target='#inviteModal'><i class='fa fa-envelope'></i></button>
 
@@ -10,10 +13,34 @@
 	<h2><span id='board-title'>{{title}}</span><small> Created at: {{created_at}}. Done at: {{done_at}}</small></h2>
 	{% if not session.logged_in %}<p class='text-center'>Welcome, {{email}}! You've been invited!</p>{% endif %}
 	{% if isOwner %}You're the owner!{% endif %}
+	{% if isDone %}<p>This board is done!</p>{% endif %}
 	
 {% endblock %}
 {% block controller_modals %}
 {% if isOwner %}
+{% if not isDone %}
+<!--Mark As Done-->
+		<div class="modal fade" id="markAsDoneModal" tabindex="-1" role="dialog" aria-labelledby="markAsDoneLabel">
+		  <div class="modal-dialog" role="document">
+		    <div class="modal-content">
+		      <div class="modal-header">
+		        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+		        <h4 class="modal-title" id="markAsDoneLabel">Mark As Done</h4>
+		      </div>
+		      <div class="modal-body text-center">
+				  <h4>Are you sure you want to mark this board as done?</h4>
+				  <form id='mark-as-done-form'>
+				  	<input type='hidden' name='_csrf_token' value='{{ csrf_token() }}'>
+				  	<input type='hidden' name='boardID' value='{{ boardID }}'>
+				  </form>
+				  <button id='mark-as-done' class='global-btn half-btn'>Yes</button>
+				  <button id='do-not-mark-as-done' class='global-btn half-btn'>No</button>
+		      </div>
+		    </div>
+		  </div>
+		</div>
+		<!--End Mark As Done-->
+{% endif %}
 <!--Edit Board-->
 		<div class="modal fade" id="editModal" tabindex="-1" role="dialog" aria-labelledby="editLabel">
 		  <div class="modal-dialog" role="document">
@@ -118,12 +145,32 @@
 				$('input[name="_csrf_token"]').val(data.token);
 			});
 		});
-      });
-	$("#editModal").on("hidden.bs.modal", function(){
+
+		$("#editModal").on("hidden.bs.modal", function(){
         	 document.getElementById("edit-board-form").reset();
         	 var nt = $('#board-title').text();
         	 $('#title-modal').val(nt);
    			 $('#edit-msg').remove();
 		});
+
+		$('#mark-as-done').click(function(){
+			$('#mark-as-done-msg').remove();
+			var data = $('#mark-as-done-form').serialize();
+			$.post({{ url_for('mark_done') |tojson|safe}}, data, function(data){
+				if(data.error=='None'){
+					$('#markAsDoneModal .modal-body').html('<div class="alert alert-success" role="alert">Successfully marked as done!</div>');
+				}
+				else{
+					$('#markAsDoneModal .modal-body').prepend('<div class="alert alert-warning" id="mark-as-done-msg" role="alert">'+data.error+'</div>');
+				}
+				$("input[name='_csrf_token']").val(data.token);
+			});
+		});
+		$("#markAsDoneModal").on("hidden.bs.modal", function(){
+   			 $('#mark-as-done-msg').remove();
+		});
+
+      });
+	
 </script>
 {% endblock %}
