@@ -193,28 +193,21 @@ def edit_board():
         abort(401)
     else: # is logged in
         error = 'None'
-        # csrf = request.form['_csrf_token']
-        # token = session.pop('_csrf_token', None)
-        # if not token or token != csrf:
-           # abort(401)
+        new_token = generate_csrf_token()
         try:
             g.db.execute('update boards set title=? where id=? and creatorID=?', [request.form['title'], int(request.form['boardID']), session['userid']])
             g.db.commit()
-        except sqlite3.Error as e: # not the creator
+        except sqlite3.Error as e:
             error = e.args[0]
-        return jsonify(error=error) # and new CSRF token to be used again
+        return jsonify(error=error, token=new_token) # and new CSRF token to be used again
 
 
-@app.route('/_inviteUser')
+@app.route('/_inviteUser', methods=['POST'])
 def invite_user():
-    csrf = request.args.get('_csrf_token', 0, type=str)
-    token = session.pop('_csrf_token', None)
-    if not token or token != csrf:
-        abort(400)
-    em = request.args.get('email', 0, type=str).lower()
-    ty = request.args.get('type', 0, type=str) # view or edit
-    b_id = request.args.get('boardID', 0, type=int)
-    user = session.get('userid')
+    em = request.form['email'].lower()
+    ty = request.form['type'] # view or edit
+    b_id = int(request.form['boardID'])
+    user = session['userid']
     inviteID = uuid.uuid4().hex
     error = 'none'
     successful='false'

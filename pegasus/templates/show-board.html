@@ -79,7 +79,7 @@
 	$(function() {
         $('#invite-form').bind('submit', function() {
           $('#invite-msg').remove(); // if there were any previous errors
-          $.getJSON({{ url_for('invite_user')|tojson|safe }}, {
+          $.post({{ url_for('invite_user')|tojson|safe }}, {
             email: $('input[name="email"]').val(),
             type: $('input[name="type"]:checked').val(),
             _csrf_token: $('input[name="_csrf_token"]').val(),
@@ -91,7 +91,7 @@
             }else{
             	$('#inviteModal .modal-body').prepend('<div class="alert alert-warning" id="invite-msg" role="alert">'+data.error+'</div>')
             }
-            $('input[name="_csrf_token"]').val(data.token) // replace all tokens in page
+            $('input[name="_csrf_token"]').val(data.token); // replace all tokens in page
           });
           return false;
         });
@@ -110,16 +110,18 @@
 					$('#editModal .modal-body').prepend('<div class="alert alert-warning" id="edit-msg" role="alert">' + data.error +'</div>');
             	document.getElementById("edit-board-form").reset();
 				}
-				else
+				else{
 					$('#editModal .modal-body').prepend('<div class="alert alert-success" id="edit-msg" role="alert">Successfully changed!</div>');
-					var newTitle = $('#title-modal').val();
+					newTitle = $('#title-modal').val();
 					$('#board-title').text(newTitle);
-					// set new csrf token here
+				}
+				$('input[name="_csrf_token"]').val(data.token);
 			});
 		});
       });
 	$("#editModal").on("hidden.bs.modal", function(){
         	 document.getElementById("edit-board-form").reset();
+        	 $('#title-modal').val(newTitle);
    			 $('#edit-msg').remove();
 		});
 </script>
