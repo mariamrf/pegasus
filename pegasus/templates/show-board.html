@@ -10,10 +10,34 @@
 {% endif %}
 {% endblock %}
 {% block content %}
-	<h2><span id='board-title'>{{title}}</span><small> Created at: {{created_at}}. Done at: {{done_at}}</small></h2>
-	{% if not session.logged_in %}<p class='text-center'>Welcome, {{email}}! You've been invited!</p>{% endif %}
-	{% if isOwner %}You're the owner!{% endif %}
-	{% if isDone %}<p>This board is done!</p>{% endif %}
+<div class='row'>
+	<div class='col-xs-12'>
+		<h2><span id='board-title'>{{title}}</span><small class='hidden-xs hidden-sm'> Created at: {{created_at}}. Done at: {{done_at}}</small></h2>
+		{% if not session.logged_in %}<p class='text-center'>Welcome, {{email}}! You've been invited!</p>{% endif %}
+		{% if isOwner %}You're the owner!{% endif %}
+		{% if isDone %}<p>This board is done!</p>{% endif %}
+	</div>
+</div>
+	<div class='row'>
+		<div class='col-xs-12'>
+			<div id='chat-board'>
+			</div>
+	<!--Chat box-->
+	{% if canEdit and not isDone %}
+			<form id='chat-form'>
+				<div class='form-group'>
+				<input type='hidden' name='_csrf_token' value='{{ csrf_token() }}'>
+					<hr>
+					<textarea class='form-control' name='message' id='chat-textarea' placeholder="SAY SOMETHING..."></textarea>
+				</div>
+			</form>
+	{% endif %}
+	<!--End Chat box-->
+
+		</div>
+	</div>
+
+
 	
 {% endblock %}
 {% block controller_modals %}
@@ -102,11 +126,50 @@
 {% endif %}
 {% endblock %}
 {% block scripts %}
+<script src="{{ url_for('static', filename='js/jquery.sticky-kit.min.js') }}"></script>
 <script> // keeping it here because jinja-rendered urls below, for now.
 	$(function() {
+		$("#chat-board").animate({ scrollTop: $('#chat-board').prop("scrollHeight")}, 500);
+		var B = {{ boardID }};
+		var C = '{{ csrf_token() }}';
+		$.getJSON(Flask.url_for('board_components', {boardID:B}), {
+			'_csrf_token': C,
+			invite: '-1' // for now
+		}, function(data){
+			console.log(data.messages);
+			C = data.token;
+			$("input[name='_csrf_token']").val(data.token);
+			for(var i=0; i<data.messages.length; i++){
+				$('#chat-board').append('<p class="chat-message">' + data.messages[i].userID + ' said:<br>' + data.messages[i].content + '</p>');
+			}
+		});
+
+		$('#chat-form').bind('submit', function(event){
+			event.preventDefault();
+			var message = $('#chat-textarea').val();
+			if(!message)
+				return false;
+			$.post(Flask.url_for('board_components', {boardID:B}), {
+				'_csrf_token': $("input[name='_csrf_token']").val(),
+				'invite': '-1',
+				'message': message
+			}, function(data){
+				console.log(data.error);
+				C = data.token;
+				$("input[name='_csrf_token']").val(data.token);
+				$('#chat-textarea').val('');
+			});
+		});
+		$('#chat-textarea').keydown(function(event){ // submit chat when enter alone is pressed
+			if(event.keyCode==13 && !event.shiftKey){
+				$('#chat-form').submit();
+				return false;
+			}
+		});
+
         $('#invite-form').bind('submit', function() {
           $('#invite-msg').remove(); // if there were any previous errors
-          $.post({{ url_for('invite_user')|tojson|safe }}, {
+          $.post(Flask.url_for('invite_user'), {
             email: $('input[name="email"]').val(),
             type: $('input[name="type"]:checked').val(),
             _csrf_token: $('input[name="_csrf_token"]').val(),

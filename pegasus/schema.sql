@@ -23,9 +23,11 @@ create table board_content (
 	id integer primary key autoincrement,
 	boardID integer not null,
 	content text not null,
-	userID integer not null,
+	userID integer, /* null if user is not logged in */
+	userEmail text, /* only has values if user is not logged in, not refreshed if user is registered/changed address/etc */
 	FOREIGN KEY (boardID) REFERENCES boards(id),
 	FOREIGN KEY (userID) REFERENCES users(id)
+	/* ADD TIME */
 );
 
 drop table if exists invites;

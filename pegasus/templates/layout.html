@@ -12,9 +12,10 @@
 		<link rel='stylesheet' type='text/css' href="{{ url_for('static', filename='css/bootstrap.min.css')}}">
 		<link rel='stylesheet' type='text/css' href="{{ url_for('static', filename='css/styles.css') }}">
 		<!--End CSS-->
+		{{ JSGlue.include() }}
 	</head>
 	<body>
-		<div class='header container-fluid'>
+		<div  id='header' class='header container-fluid'>
 			<div class='row'>
 				<div class='col-xs-4'>
 				<a href="{{  url_for('index') }}" title='Home'>
@@ -56,6 +57,7 @@
 				</div>
 			</div>
 		</div>
+
 		<div class='container all'>
 			<div class='row'>
 				<div class='col-xs-12'>
@@ -130,7 +132,7 @@
 
 		<!--Scripts-->
 		<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
-		<script src="{{ url_for('static', filename='js/bootstrap.min.js')}}"></script>
+		<script src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
 		{% block scripts %}
 		{% endblock %}
 		<!--End Scripts-->

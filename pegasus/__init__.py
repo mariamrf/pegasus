@@ -2,6 +2,7 @@
 import sqlite3
 from flask import Flask, g, request, session, abort
 from contextlib import closing
+from flask_jsglue import JSGlue
 
 # config (which should be in another file for larger apps)
 DATABASE = '/tmp/pegasus.db'
@@ -11,6 +12,7 @@ SECRET_KEY = 'you shall not pass'
 
 # initialize app
 app = Flask(__name__)
+jsglue = JSGlue(app)
 app.config.from_object(__name__) # or the other file if we had the config in another file (ref: app.config.from_envvar('FLASKR_SETTINGS', silent=True))
 
 # import other necessary modules

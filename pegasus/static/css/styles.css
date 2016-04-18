@@ -79,6 +79,7 @@ label{
 	width:30%;
 }
 
+
 .form-control{
 	border-width: 0.2em;
 	border-radius:0px;
@@ -90,7 +91,26 @@ label{
 	-webkit-transition:background-color 0.5s, border-color 0.5s;
 }
 
+#chat-form{
+	width:100%;
+}
+#chat-form hr{
+	border-width:0.8em;
+	margin-bottom:0;
+	border-color:#07C87F;
+}
 
+
+#chat-textarea{
+	padding-top:1em;
+	height:7em;
+	width: 100%;
+	resize: none;
+}
+.chat-message{
+	font-weight: bold;
+	
+}
 .form-control:hover{
 	background-color:#eee;
 	border-color: rgba(7, 200, 127, 1);
@@ -115,7 +135,13 @@ label{
 	margin-right: 1em;
 }
 
+#chat-board{
+	height: 58vh;
+	overflow: scroll;
+}
+
 .header{
+	position: relative;
 	padding:1em;      
 	min-height: 8vh;
 }
