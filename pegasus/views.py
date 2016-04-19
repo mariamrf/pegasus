@@ -346,8 +346,12 @@ def board_components(boardID):
     if request.method == 'GET':
         # no need for extra auth here as everyone with access to the board can see everything
         cur2 = g.db.execute('select id, content, userID, userEmail from board_content where boardID=?', [bid]).fetchall()
-        messages = [dict(id=row[0], content=row[1], userID=row[2], userEmail=row[3]) for row in cur2]
-        return jsonify(messages=messages)
+        if len(cur2) > request.args.get('number', 0, int): # this only works because nobody can delete a message, obvs not good for the long run
+            messages = [dict(id=row[0], content=row[1], userID=row[2], userEmail=row[3]) for row in cur2]
+            return jsonify(messages=messages)
+        else:
+            er = 'No new'
+            return jsonify(error=er)
     ### POST A SINGLE COMPONENT/MESSAGE
     elif request.method == 'POST':
         new_token = generate_csrf_token()

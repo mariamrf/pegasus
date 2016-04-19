@@ -155,10 +155,12 @@
 					type: 'GET',
 					url: Flask.url_for('board_components', {boardID:B}),
 					data: {
-							invite: INVITE
+							invite: INVITE,
+							number: prev
 						}, 
 					success: function(data){
-					for(var i=0; i<data.messages.length; i++){ 
+					if(!data.error){
+						for(var i=0; i<data.messages.length; i++){ 
 						var username;
 						if (data.messages[i].userID){
 							var id = data.messages[i].userID; // get username from db
@@ -182,12 +184,15 @@
 							$('#chat-board').append('<p class="chat-message"> <span class="chat-username">' + username + '</span> said:<br> <span class="chat-message-details"></span></p>');
 						else
 							$('#chat-board').html('<p class="chat-message"> <span class="chat-username">' + username + '</span> said:<br> <span class="chat-message-details"></span></p>');
-						$('.chat-message-details').last().text(data.messages[i].content);
-						
+						var list = data.messages[i].content.split('\n');
+						var final = list.join('<br>');
+						$('.chat-message-details').last().html(final);
+							
 					}
 					if(data.messages.length>prev){
 						$("#chat-board").animate({ scrollTop: $('#chat-board').prop("scrollHeight")}, 500);
 						prev = data.messages.length;
+					}
 					}
 				}
 			});
@@ -200,17 +205,30 @@
 				var message = $('#chat-textarea').val();
 				if(!message)
 					return false;
-				$.post(Flask.url_for('board_components', {boardID:B}), {
+				$('#chat-textarea').prop('disabled', true); // disable the textarea once we send
+				$.ajax({
+					async: false,
+					type: 'POST',
+					url: Flask.url_for('board_components', {boardID:B}),
+					data: {
 					'_csrf_token': $("input[name='_csrf_token']").val(),
 					'invite': INVITE,
 					'message': message
-				}, function(data){
-					if(data.error != 'None'){
-						$('#board-error').remove();
-						$('#board-header').append('<div class="alert alert-warning" id="board-error" role="alert">'+data.error+'</div>');
+					}, 
+					success: function(data){
+						if(data.error != 'None'){
+							$('#board-error').remove();
+							$('#board-header').append('<div class="alert alert-warning" id="board-error" role="alert">'+data.error+'</div>');
+						}
+						console.log(data.token);
+						$("input[name='_csrf_token']").val(data.token);
+						$('#chat-textarea').val('');
+					},
+					error: function(message){
+						console.log(message);
 					}
-					$("input[name='_csrf_token']").val(data.token);
-					$('#chat-textarea').val('');
+				}).always(function(){
+					$('#chat-textarea').prop('disabled', false); // re-enable once everything is done and tokens are re-assigned
 				});
 			});
 			$('#chat-textarea').keydown(function(event){ // submit chat when enter alone is pressed
