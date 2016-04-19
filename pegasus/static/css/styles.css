@@ -109,7 +109,7 @@ label{
 }
 .chat-message{
 	font-weight: bold;
-	
+
 }
 .form-control:hover{
 	background-color:#eee;
@@ -171,4 +171,34 @@ label{
 
 .title{
 	font-size:1.5em;
+}
+
+.chat-message-date{
+	margin-right:0.5em;
+	margin-left: 0.2em;
+}
+
+.chat-message-details{
+	margin-left: 1.5em;
+	margin-right:1.5em;
+	padding:0.5em;
+	background-color: #f39c12;
+	border-radius:0.5em;
+	display: block;
+}
+
+.chat-message-top{
+	margin-bottom:0.5em;
+	display: block;
+}
+
+.chat-message{
+	margin-bottom:2em;
+	margin-top: 2em;
+}
+
+.top-date{
+	text-transform: uppercase;
+	font-size:0.8em;
+	font-weight: bold;
 }

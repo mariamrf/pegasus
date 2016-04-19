@@ -301,12 +301,14 @@ def mark_done():
 
 @app.route('/_inviteUser', methods=['POST'])
 def invite_user():
+    if not session.get('logged_in'):
+        abort(401)
     em = request.form['email'].lower()
     ty = request.form['type'] # view or edit
     b_id = int(request.form['boardID'])
     user = session['userid']
     inviteID = uuid.uuid4().hex
-    error = 'none'
+    error = 'None'
     successful='false'
     if is_owner(b_id, user):
         try:
@@ -346,10 +348,10 @@ def board_components(boardID):
     ### GET COMPONENTS
     if request.method == 'GET':
         # no need for extra auth here as everyone with access to the board can see everything
-        cur2 = g.db.execute('select id, content, userID, userEmail from board_content where boardID=?', [bid]).fetchall()
+        cur2 = g.db.execute('select id, content, userID, userEmail, created_at from board_content where boardID=? order by created_at', [bid]).fetchall()
         if len(cur2) > request.args.get('number', 0, int): # this only works because nobody can delete a message, obvs not good for the long run
             messages_sliced = islice(cur2, request.args.get('number', 0, int), None)
-            messages = [dict(id=row[0], content=row[1], userID=row[2], userEmail=row[3]) for row in messages_sliced]
+            messages = [dict(id=row[0], content=row[1], userID=row[2], userEmail=row[3], created_at=row[4]) for row in messages_sliced]
             return jsonify(messages=messages)
         else:
             er = 'No new'

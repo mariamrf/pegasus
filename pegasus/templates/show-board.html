@@ -12,7 +12,7 @@
 {% block content %}
 <div class='row'>
 	<div class='col-xs-12' id='board-header'>
-		<h2><span id='board-title'>{{title}}</span><small class='hidden-xs hidden-sm'> Created at: {{created_at}}. Done at: {{done_at}}</small></h2>
+		<h2><span id='board-title'>{{title}}</span><small class='hidden-xs hidden-sm'> Created: <span id='board-created-at' class='top-date'></span>. Done: <span id='board-done-at' class='top-date'></span></small></h2>
 		{% if not session.logged_in %}<p class='text-center'>Welcome, {{email}}! You've been invited!</p>{% endif %}
 		{% if isOwner %}You're the owner!{% endif %}
 		{% if isDone %}<p>This board is done!</p>{% endif %}
@@ -128,7 +128,11 @@
 {% block scripts %}
 <script> // keeping it here because jinja-rendered urls below, for now.
 	$(function() {
-		// SCROLL TO BOTTOM OF CHAT
+		// CREATED_AT and DONE_AT in proper local format
+		var board_created = moment.utc('{{ created_at }}').local().format("dddd, MMMM Do YYYY, h:mm:ss a");
+		var board_done = moment.utc('{{ done_at }}').local().format("dddd, MMMM Do YYYY, h:mm:ss a");
+		$('#board-created-at').text(board_created);
+		$('#board-done-at').text(board_done);
 
 		// GET INVITE CODE IF ANY
 			function getQueryParam(sParam){
@@ -150,6 +154,7 @@
 		// GET MESSAGES
 			var B = {{ boardID }};
 			var prev = 0;
+			var me = '{{ session.username }}';
 			function getMessages(){
 				$.ajax({
 					type: 'GET',
@@ -180,7 +185,14 @@
 						}
 						else
 							username = data.messages[i].userEmail;
-							$('#chat-board').append('<p class="chat-message"> <span class="chat-username">' + username + '</span> said:<br> <span class="chat-message-details"></span></p>');
+						var time = moment.utc(data.messages[i].created_at).local();
+						var color;
+						if(me != 'None' && me == username){
+							color='#eee';
+						}
+						else
+							color='rgba(243, 156, 18, 0.7)';
+						$('#chat-board').append('<p class="chat-message"> <span class="chat-message-top"> <span class="chat-message-date" title="'+time.format("dddd, MMMM Do YYYY, h:mm:ss a")+'"><i class="fa fa-clock-o"></i></span><span class="chat-username">' + username + '</span>:</span> <span class="chat-message-details" style="background-color:'+color+';"></span></p>');
 						var list = data.messages[i].content.split('\n');
 						var final = list.join('<br>');
 						$('.chat-message-details').last().html(final);
@@ -193,10 +205,11 @@
 			});
 		}
 		var isDone = '{{ isDone }}';
-		if(isDone == 'False')
+		if(isDone != 'True')
 			window.setInterval(getMessages, 1000);
 		else // if it's done, only get messages once
 			getMessages();
+
 
 		// SEND MESSAGE
 			$('#chat-form').bind('submit', function(event){
