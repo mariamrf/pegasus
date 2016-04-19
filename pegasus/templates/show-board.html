@@ -192,7 +192,11 @@
 				}
 			});
 		}
-		window.setInterval(getMessages, 1000);
+		var isDone = '{{ isDone }}';
+		if(isDone == 'False')
+			window.setInterval(getMessages, 1000);
+		else // if it's done, only get messages once
+			getMessages();
 
 		// SEND MESSAGE
 			$('#chat-form').bind('submit', function(event){
