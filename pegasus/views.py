@@ -6,6 +6,7 @@ import random
 from flask import request, session, g, redirect, url_for, abort, render_template, flash, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
+from itertools import islice
 
 
 
@@ -347,7 +348,8 @@ def board_components(boardID):
         # no need for extra auth here as everyone with access to the board can see everything
         cur2 = g.db.execute('select id, content, userID, userEmail from board_content where boardID=?', [bid]).fetchall()
         if len(cur2) > request.args.get('number', 0, int): # this only works because nobody can delete a message, obvs not good for the long run
-            messages = [dict(id=row[0], content=row[1], userID=row[2], userEmail=row[3]) for row in cur2]
+            messages_sliced = islice(cur2, request.args.get('number', 0, int), None)
+            messages = [dict(id=row[0], content=row[1], userID=row[2], userEmail=row[3]) for row in messages_sliced]
             return jsonify(messages=messages)
         else:
             er = 'No new'
