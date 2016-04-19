@@ -167,7 +167,7 @@ def show_board(boardID):
         isDone = False
         if(done_at < datetime.utcnow()):
             isDone = True
-        if invite is None and auth['access']:
+        if auth['access']: # don't care if there's an invite string as long as you have access while logged in
             if auth['accessType'] == 'edit':
                 can_participate = True
             return render_template('show-board.html', canEdit=can_participate, isDone=isDone, title=curB[0], created_at=curB[1], done_at=curB[2], isOwner=auth['isOwner'], boardID=boardID)
@@ -324,11 +324,16 @@ def invite_user():
 @app.route('/api/board/<boardID>/components', methods=['GET', 'POST']) # just all the components with everything there is to know about them for this phase
 def board_components(boardID):
     # first of all, authenticate
-    cur0 = g.db.execute('select title from boards where id=?', [int(boardID)]).fetchone()
+    bid = int(boardID)
+    cur0 = g.db.execute('select title from boards where id=?', [bid]).fetchone()
+    ## If board doesn't exist
     if cur0 is None:
         abort(404)
-    inv = request.args.get('invite', 0, str)
-    bid = int(boardID)
+    ## If there's an invite code
+    if request.method == 'GET':
+        inv = request.args.get('invite', 0, str)
+    else:
+        inv = request.form['invite']
     if inv != '-1' and not session.get('logged_in'): # don't care if there's an invite string as long as they're logged in
         cur = g.db.execute('select type, userEmail from invites where id=? and boardID=?', [inv, bid]).fetchone()
         if cur is None:
@@ -337,7 +342,8 @@ def board_components(boardID):
         auth = is_authorized(bid)
         if not auth['access']:
             abort(401)
-    if request.method == 'GET': # get all the components
+    ### GET COMPONENTS
+    if request.method == 'GET':
         # no need for extra auth here as everyone with access to the board can see everything
         csrf = request.args.get('_csrf_token', 0, str)
         token = session.pop('_csrf_token', None)
@@ -347,27 +353,49 @@ def board_components(boardID):
         cur2 = g.db.execute('select id, content, userID, userEmail from board_content where boardID=?', [bid]).fetchall()
         messages = [dict(id=row[0], content=row[1], userID=row[2], userEmail=row[3]) for row in cur2]
         return jsonify(messages=messages, token=new_tok)
-        ###
-    elif request.method == 'POST': # post a single message
+    ### POST A SINGLE COMPONENT/MESSAGE
+    elif request.method == 'POST':
         new_token = generate_csrf_token()
         msg = request.form['message']
         error = 'None'
-        if session.get('logged_in'):
-            try:
-                g.db.execute('insert into board_content (boardID, userID, content) values (?, ?, ?)', [bid, session['userid'], msg])
-                g.db.commit()
-            except sqlite3.Error as e:
-                error = e.args[0]
-        else: # has an invite, if they made it this far
-            ty = cur[0]
-            em = cur[1]
-            if ty != 'edit':
-                abort(401)
-            try:
-                g.db.execute('insert into board_content (boardID, userEmail, content) values (?, ?, ?)', [bid, em, msg])
-                g.db.commit()
-            except sqlite3.Error as e:
-                error = e.args[0]
+        curDone = g.db.execute('select done_at from boards where id=?', [bid]).fetchone()
+        done_at = datetime.strptime(curDone[0], '%Y-%m-%d %H:%M:%S.%f')
+        if(done_at > datetime.utcnow()):
+            if session.get('logged_in'):
+                try:
+                    g.db.execute('insert into board_content (boardID, userID, content) values (?, ?, ?)', [bid, session['userid'], msg])
+                    g.db.commit()
+                except sqlite3.Error as e:
+                    error = e.args[0]
+            else: # has an invite, if they made it this far
+                ty = cur[0]
+                em = cur[1]
+                if ty != 'edit':
+                    abort(401)
+                try:
+                    g.db.execute('insert into board_content (boardID, userEmail, content) values (?, ?, ?)', [bid, em, msg])
+                    g.db.commit()
+                except sqlite3.Error as e:
+                    error = e.args[0]
+        else:
+            error = 'This board was marked as done by its creator, you cannot make any more changes.'
         return jsonify(error=error, token=new_token)
 
 
+@app.route('/api/user/<userID>', methods=['GET'])
+def get_user(userID):
+    # no authentication needed, public info. A better app would only provide this info to people who have something in common with the user
+    ## like they share a board. But for now, it's just public.
+    error = 'None'
+    username = None
+    name = None
+    try:
+        cur = g.db.execute('select name, username from users where id=?', [int(userID)]).fetchone()
+        if cur is None:
+            error = 'User not found.'
+        else:
+            name = cur[0]
+            username = cur[1]
+    except sqlite3.Error as e: # just in case
+        error = e.args[0]
+    return jsonify(error=error, username=username, name=name)

@@ -11,7 +11,7 @@
 {% endblock %}
 {% block content %}
 <div class='row'>
-	<div class='col-xs-12'>
+	<div class='col-xs-12' id='board-header'>
 		<h2><span id='board-title'>{{title}}</span><small class='hidden-xs hidden-sm'> Created at: {{created_at}}. Done at: {{done_at}}</small></h2>
 		{% if not session.logged_in %}<p class='text-center'>Welcome, {{email}}! You've been invited!</p>{% endif %}
 		{% if isOwner %}You're the owner!{% endif %}
@@ -126,114 +126,179 @@
 {% endif %}
 {% endblock %}
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/jquery.sticky-kit.min.js') }}"></script>
 <script> // keeping it here because jinja-rendered urls below, for now.
 	$(function() {
-		$("#chat-board").animate({ scrollTop: $('#chat-board').prop("scrollHeight")}, 500);
-		var B = {{ boardID }};
-		var C = '{{ csrf_token() }}';
-		$.getJSON(Flask.url_for('board_components', {boardID:B}), {
-			'_csrf_token': C,
-			invite: '-1' // for now
-		}, function(data){
-			console.log(data.messages);
-			C = data.token;
-			$("input[name='_csrf_token']").val(data.token);
-			for(var i=0; i<data.messages.length; i++){
-				$('#chat-board').append('<p class="chat-message">' + data.messages[i].userID + ' said:<br>' + data.messages[i].content + '</p>');
+		// SCROLL TO BOTTOM OF CHAT
+
+		// GET INVITE CODE IF ANY
+			function getQueryParam(sParam){
+				var sPageURL = window.location.search.substring(1);
+				var sURLVariables = sPageURL.split('&');
+				for(var i=0; i<sURLVariables.length; i++){
+					var sParamName = sURLVariables[i].split('=');
+					if(sParamName[0].toLowerCase() == sParam.toLowerCase()){
+						return sParamName[1];
+					}
+				}
 			}
-		});
-
-		$('#chat-form').bind('submit', function(event){
-			event.preventDefault();
-			var message = $('#chat-textarea').val();
-			if(!message)
-				return false;
-			$.post(Flask.url_for('board_components', {boardID:B}), {
-				'_csrf_token': $("input[name='_csrf_token']").val(),
-				'invite': '-1',
-				'message': message
-			}, function(data){
-				console.log(data.error);
-				C = data.token;
-				$("input[name='_csrf_token']").val(data.token);
-				$('#chat-textarea').val('');
-			});
-		});
-		$('#chat-textarea').keydown(function(event){ // submit chat when enter alone is pressed
-			if(event.keyCode==13 && !event.shiftKey){
-				$('#chat-form').submit();
-				return false;
+			var INVITE = '-1';
+			var temp = getQueryParam('invite'); // so we only call the function once
+			if(temp){
+				INVITE = temp;
 			}
-		});
 
-        $('#invite-form').bind('submit', function() {
-          $('#invite-msg').remove(); // if there were any previous errors
-          $.post(Flask.url_for('invite_user'), {
-            email: $('input[name="email"]').val(),
-            type: $('input[name="type"]:checked').val(),
-            _csrf_token: $('input[name="_csrf_token"]').val(),
-            boardID: {{ boardID }}
-          }, function(data) {
-            if(data.successful == 'true'){
-            	$('#inviteModal .modal-body').prepend('<div class="alert alert-success" id="invite-msg" role="alert">Successfully invited!</div>');
-            	document.getElementById("invite-form").reset();
-            }else{
-            	$('#inviteModal .modal-body').prepend('<div class="alert alert-warning" id="invite-msg" role="alert">'+data.error+'</div>')
-            }
-            $('input[name="_csrf_token"]').val(data.token); // replace all tokens in page
-          });
-          return false;
-        });
-
-        $("#inviteModal").on("hidden.bs.modal", function(){
-        	 document.getElementById("invite-form").reset();
-   			 $('#invite-msg').remove();
-		});
-
-		$('#edit-board-form').bind('submit', function(event){
-			event.preventDefault();
-			$('#edit-msg').remove(); // if there were any previous errors
-			var data = $(this).serialize();
-			$.post({{ url_for('edit_board') |tojson|safe }}, data, function(data){
-				if(data.error != 'None'){
-					$('#editModal .modal-body').prepend('<div class="alert alert-warning" id="edit-msg" role="alert">' + data.error +'</div>');
-            	document.getElementById("edit-board-form").reset();
+		// GET MESSAGES
+			var B = {{ boardID }};
+			var C = '{{ csrf_token() }}';
+			var prev = 0;
+			function getMessages(){
+				$.ajax({
+					type: 'GET',
+					url: Flask.url_for('board_components', {boardID:B}),
+					data: {
+							'_csrf_token': C,
+							invite: INVITE
+						}, 
+					success: function(data){
+					C = data.token;
+					$("input[name='_csrf_token']").val(data.token);
+					for(var i=0; i<data.messages.length; i++){ 
+						var username;
+						if (data.messages[i].userID){
+							var id = data.messages[i].userID; // get username from db
+							$.ajax({
+								type: 'GET',
+								url: Flask.url_for('get_user', {userID:id}),
+								async: false, // so we can actually set the username through it
+								dataType: 'json',
+								success: function(d){
+									if(d.error == 'None'){
+									username = d.username;
+								}
+								else // if username was not found/user was later deleted/etc, though deleting/deactivating should be 'soft'
+									username = id;
+								}
+							});
+						}
+						else
+							username = data.messages[i].userEmail;
+						if(i!=0)
+							$('#chat-board').append('<p class="chat-message"> <span class="chat-username">' + username + '</span> said:<br> <span class="chat-message-details"></span></p>');
+						else
+							$('#chat-board').html('<p class="chat-message"> <span class="chat-username">' + username + '</span> said:<br> <span class="chat-message-details"></span></p>');
+						$('.chat-message-details').last().text(data.messages[i].content);
+						
+					}
+					if(data.messages.length>prev){
+						$("#chat-board").animate({ scrollTop: $('#chat-board').prop("scrollHeight")}, 500);
+						prev = data.messages.length;
+					}
 				}
-				else{
-					$('#editModal .modal-body').prepend('<div class="alert alert-success" id="edit-msg" role="alert">Successfully changed!</div>');
-					newTitle = $('#title-modal').val();
-					$('#board-title').text(newTitle);
-				}
-				$('input[name="_csrf_token"]').val(data.token);
 			});
-		});
+		}
+		window.setInterval(getMessages, 1000);
 
-		$("#editModal").on("hidden.bs.modal", function(){
-        	 document.getElementById("edit-board-form").reset();
-        	 var nt = $('#board-title').text();
-        	 $('#title-modal').val(nt);
-   			 $('#edit-msg').remove();
-		});
-
-		$('#mark-as-done').click(function(){
-			$('#mark-as-done-msg').remove();
-			var data = $('#mark-as-done-form').serialize();
-			$.post({{ url_for('mark_done') |tojson|safe}}, data, function(data){
-				if(data.error=='None'){
-					$('#markAsDoneModal .modal-body').html('<div class="alert alert-success" role="alert">Successfully marked as done!</div>');
-				}
-				else{
-					$('#markAsDoneModal .modal-body').prepend('<div class="alert alert-warning" id="mark-as-done-msg" role="alert">'+data.error+'</div>');
-				}
-				$("input[name='_csrf_token']").val(data.token);
+		// SEND MESSAGE
+			$('#chat-form').bind('submit', function(event){
+				event.preventDefault();
+				var message = $('#chat-textarea').val();
+				if(!message)
+					return false;
+				$.post(Flask.url_for('board_components', {boardID:B}), {
+					'_csrf_token': $("input[name='_csrf_token']").val(),
+					'invite': INVITE,
+					'message': message
+				}, function(data){
+					if(data.error != 'None'){
+						$('#board-error').remove();
+						$('#board-header').append('<div class="alert alert-warning" id="board-error" role="alert">'+data.error+'</div>');
+					}
+					C = data.token;
+					$("input[name='_csrf_token']").val(data.token);
+					$('#chat-textarea').val('');
+				});
 			});
-		});
-		$("#markAsDoneModal").on("hidden.bs.modal", function(){
-   			 $('#mark-as-done-msg').remove();
-		});
+			$('#chat-textarea').keydown(function(event){ // submit chat when enter alone is pressed
+				if(event.keyCode==13 && !event.shiftKey){
+					$('#chat-form').submit();
+					return false;
+				}
+			});
 
-      });
+
+		// INVITE PEOPLE
+	        $('#invite-form').bind('submit', function() {
+	          $('#invite-msg').remove(); // if there were any previous errors
+	          $.post(Flask.url_for('invite_user'), {
+	            email: $('input[name="email"]').val(),
+	            type: $('input[name="type"]:checked').val(),
+	            _csrf_token: $('input[name="_csrf_token"]').val(),
+	            boardID: {{ boardID }}
+	          }, function(data) {
+	            if(data.successful == 'true'){
+	            	$('#inviteModal .modal-body').prepend('<div class="alert alert-success" id="invite-msg" role="alert">Successfully invited!</div>');
+	            	document.getElementById("invite-form").reset();
+	            }else{
+	            	$('#inviteModal .modal-body').prepend('<div class="alert alert-warning" id="invite-msg" role="alert">'+data.error+'</div>')
+	            }
+	            $('input[name="_csrf_token"]').val(data.token); // replace all tokens in page
+	            C = data.token;
+	          });
+	          return false;
+	        });
+
+	        $("#inviteModal").on("hidden.bs.modal", function(){
+	        	 document.getElementById("invite-form").reset();
+	   			 $('#invite-msg').remove();
+			});
+
+	    // EDIT BOARD TITLE
+			$('#edit-board-form').bind('submit', function(event){
+				event.preventDefault();
+				$('#edit-msg').remove(); // if there were any previous errors
+				var data = $(this).serialize();
+				$.post(Flask.url_for('edit_board'), data, function(data){
+					if(data.error != 'None'){
+						$('#editModal .modal-body').prepend('<div class="alert alert-warning" id="edit-msg" role="alert">' + data.error +'</div>');
+	            	document.getElementById("edit-board-form").reset();
+					}
+					else{
+						$('#editModal .modal-body').prepend('<div class="alert alert-success" id="edit-msg" role="alert">Successfully changed!</div>');
+						newTitle = $('#title-modal').val();
+						$('#board-title').text(newTitle);
+					}
+					$('input[name="_csrf_token"]').val(data.token);
+					C = data.token;
+				});
+			});
+
+			$("#editModal").on("hidden.bs.modal", function(){
+	        	 document.getElementById("edit-board-form").reset();
+	        	 var nt = $('#board-title').text();
+	        	 $('#title-modal').val(nt);
+	   			 $('#edit-msg').remove();
+			});
+
+		// MARK BOARD AS DONE
+			$('#mark-as-done').click(function(){
+				$('#mark-as-done-msg').remove();
+				var data = $('#mark-as-done-form').serialize();
+				$.post(Flask.url_for('mark_done'), data, function(data){
+					if(data.error=='None'){
+						$('#markAsDoneModal .modal-body').html('<div class="alert alert-success" role="alert">Successfully marked as done!</div>');
+					}
+					else{
+						$('#markAsDoneModal .modal-body').prepend('<div class="alert alert-warning" id="mark-as-done-msg" role="alert">'+data.error+'</div>');
+					}
+					$("input[name='_csrf_token']").val(data.token);
+					C  = data.token;
+				});
+			});
+			$("#markAsDoneModal").on("hidden.bs.modal", function(){
+	   			 $('#mark-as-done-msg').remove();
+			});
+
+	      });
 	
 </script>
 {% endblock %}

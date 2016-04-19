@@ -61,8 +61,8 @@
 		<div class='container all'>
 			<div class='row'>
 				<div class='col-xs-12'>
-					{% for category, message in get_flashed_messages(with_categories=true) %}
-					<div class='alert alert-{{category}}' role='alert'>
+					{% for message in get_flashed_messages() %}
+					<div class='alert alert-warning' role='alert'>
 						{{ message }}
 					</div>
 					{% endfor %}
