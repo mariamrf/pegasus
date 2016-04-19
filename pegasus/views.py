@@ -345,14 +345,9 @@ def board_components(boardID):
     ### GET COMPONENTS
     if request.method == 'GET':
         # no need for extra auth here as everyone with access to the board can see everything
-        csrf = request.args.get('_csrf_token', 0, str)
-        token = session.pop('_csrf_token', None)
-        new_tok = generate_csrf_token()
-        if not token or token != csrf:
-            abort(401)
         cur2 = g.db.execute('select id, content, userID, userEmail from board_content where boardID=?', [bid]).fetchall()
         messages = [dict(id=row[0], content=row[1], userID=row[2], userEmail=row[3]) for row in cur2]
-        return jsonify(messages=messages, token=new_tok)
+        return jsonify(messages=messages)
     ### POST A SINGLE COMPONENT/MESSAGE
     elif request.method == 'POST':
         new_token = generate_csrf_token()

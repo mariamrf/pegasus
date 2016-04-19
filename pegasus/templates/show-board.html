@@ -149,19 +149,15 @@
 
 		// GET MESSAGES
 			var B = {{ boardID }};
-			var C = '{{ csrf_token() }}';
 			var prev = 0;
 			function getMessages(){
 				$.ajax({
 					type: 'GET',
 					url: Flask.url_for('board_components', {boardID:B}),
 					data: {
-							'_csrf_token': C,
 							invite: INVITE
 						}, 
 					success: function(data){
-					C = data.token;
-					$("input[name='_csrf_token']").val(data.token);
 					for(var i=0; i<data.messages.length; i++){ 
 						var username;
 						if (data.messages[i].userID){
@@ -213,7 +209,6 @@
 						$('#board-error').remove();
 						$('#board-header').append('<div class="alert alert-warning" id="board-error" role="alert">'+data.error+'</div>');
 					}
-					C = data.token;
 					$("input[name='_csrf_token']").val(data.token);
 					$('#chat-textarea').val('');
 				});
@@ -242,7 +237,6 @@
 	            	$('#inviteModal .modal-body').prepend('<div class="alert alert-warning" id="invite-msg" role="alert">'+data.error+'</div>')
 	            }
 	            $('input[name="_csrf_token"]').val(data.token); // replace all tokens in page
-	            C = data.token;
 	          });
 	          return false;
 	        });
@@ -268,7 +262,6 @@
 						$('#board-title').text(newTitle);
 					}
 					$('input[name="_csrf_token"]').val(data.token);
-					C = data.token;
 				});
 			});
 
@@ -283,15 +276,15 @@
 			$('#mark-as-done').click(function(){
 				$('#mark-as-done-msg').remove();
 				var data = $('#mark-as-done-form').serialize();
-				$.post(Flask.url_for('mark_done'), data, function(data){
+				$.post(Flask.url_for('mark_done'), data, function(data){ // make this synchronous?
+					$("input[name='_csrf_token']").val(data.token);
 					if(data.error=='None'){
 						$('#markAsDoneModal .modal-body').html('<div class="alert alert-success" role="alert">Successfully marked as done!</div>');
 					}
 					else{
 						$('#markAsDoneModal .modal-body').prepend('<div class="alert alert-warning" id="mark-as-done-msg" role="alert">'+data.error+'</div>');
 					}
-					$("input[name='_csrf_token']").val(data.token);
-					C  = data.token;
+					
 				});
 			});
 			$("#markAsDoneModal").on("hidden.bs.modal", function(){
