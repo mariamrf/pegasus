@@ -215,7 +215,6 @@
 							$('#board-error').remove();
 							$('#board-header').append('<div class="alert alert-warning" id="board-error" role="alert">'+data.error+'</div>');
 						}
-						console.log(data.token);
 						$("input[name='_csrf_token']").val(data.token);
 						$('#chat-textarea').val('');
 					},
