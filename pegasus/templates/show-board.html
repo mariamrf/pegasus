@@ -21,6 +21,7 @@
 	<div class='row'>
 		<div class='col-xs-12'>
 			<div id='chat-board'>
+			<h1 id='chat-board-spinner' class='text-center' title="Loading chat.."><i class="fa fa-pulse fa-spinner"></i><h1>
 			</div>
 	<!--Chat box-->
 	{% if canEdit and not isDone %}
@@ -164,6 +165,7 @@
 							number: prev
 						}, 
 					success: function(data){
+						$('#chat-board-spinner').remove();
 					if(!data.error){ // has new messages
 						for(var i=0; i<data.messages.length; i++){ 
 						var username;
@@ -309,6 +311,7 @@
 					$("input[name='_csrf_token']").val(data.token);
 					if(data.error=='None'){
 						$('#markAsDoneModal .modal-body').html('<div class="alert alert-success" role="alert">Successfully marked as done!</div>');
+						window.setTimeout(location.reload(), 2000);
 					}
 					else{
 						$('#markAsDoneModal .modal-body').prepend('<div class="alert alert-warning" id="mark-as-done-msg" role="alert">'+data.error+'</div>');
