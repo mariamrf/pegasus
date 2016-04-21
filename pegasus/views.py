@@ -183,6 +183,23 @@ def show_board(boardID):
         else:
             abort(401)
 
+@app.route('/_deleteBoard', methods=['POST'])
+def delete_board():
+    if not session.get('logged_in'):
+        abort(401)
+    else:
+        error = 'None'
+        new_token = generate_csrf_token()
+        bid = int(request.form['boardID'])
+        try:
+            g.db.execute('delete from boards where id=? and creatorID=?', [bid, session['userid']])
+            g.db.commit()
+        except sqlite3.Error as e:
+            error = e.args[0]
+        if(error!='None'):
+            flash(error)
+        return redirect(url_for('show_profile'))
+
 
 # AJAX functions
 ## GET
@@ -298,6 +315,7 @@ def mark_done():
         except sqlite3.Error as e:
             error = e.args[0]
         return jsonify(error=error, token=new_token)
+
 
 @app.route('/_inviteUser', methods=['POST'])
 def invite_user():

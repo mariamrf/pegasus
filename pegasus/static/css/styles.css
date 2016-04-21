@@ -127,10 +127,24 @@ label{
 .board-btn{
 	background-color: #f39c12; /* GLOBAL ORANGE */
 }
+
 .board-btn:hover{
 	color:#f39c12;
 }
 
+.delete-btn{
+	background-color: #e74c3c; /* GLOBAL RED*/
+}
+.delete-btn:hover{
+	color: #e74c3c; /* GLOBAL RED*/
+}
+.neutral-btn{
+	background-color: #7f8c8d;
+}
+
+.neutral-btn:hover{
+	color: #7f8c8d;
+}
 .register-btn{
 	margin-right: 1em;
 }
