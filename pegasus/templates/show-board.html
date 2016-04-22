@@ -169,6 +169,7 @@
 {% endif %}
 {% endblock %}
 {% block scripts %}
+<script src="{{ url_for('static', filename='js/flatcolor.js') }}"></script>
 <script> // keeping it here because jinja-rendered urls below, for now.
 	$(function() {
 
@@ -203,6 +204,14 @@
 			var prev = 0;
 			var me = '{{ session.username }}';
 			var myemail = '{{ email }}';
+			var whoami;
+			if(!me)
+				whoami = myemail;
+			else
+				whoami = me;
+			var colors = {};
+			colors[whoami] = '#eee';
+			var prevSender = '';
 			function getMessages(){
 				$.ajax({
 					type: 'GET',
@@ -236,15 +245,30 @@
 							username = data.messages[i].userEmail;
 						var time = moment.utc(data.messages[i].created_at).local();
 						var color;
-						if((me != 'None' && me == username) || (myemail != 'None' && myemail == username)){
-							color='#eee'; // if user logs in later with their email they'd see themselves as orange/foreign. TODO
+						if(username==whoami){
+							color = colors[whoami];
 						}
-						else
-							color='rgba(243, 156, 18, 0.7)';
-						$('#chat-board').append('<p class="chat-message"> <span class="chat-message-top"> <span class="chat-message-date" title="'+time.format("dddd, MMMM Do YYYY, h:mm:ss a")+'"><i class="fa fa-clock-o"></i></span><span class="chat-username">' + username + '</span>:</span> <span class="chat-message-details" style="background-color:'+color+';"></span></p>');
+						else{
+							if(username in colors){
+								color = colors[username];
+							}
+							else{
+								var deg = Math.floor((Math.random() * 360) + 1); // another step to avoid similar colors
+								var c = new flatColor(deg);
+								color = 'rgba(' + c.rgbString + ',0.3)';
+								colors[username] = color;
+							}
+						}
+						if(username!=prevSender){
+							$('#chat-board').append('<p class="chat-message"> <span class="chat-message-top"><span class="chat-message-date"><i class="fa fa-dot-circle-o"></i></span><span class="chat-username">' + username + '</span>:</span> <span class="chat-message-details" style="background-color:'+color+';" title="'+time.format("dddd, MMMM Do YYYY, h:mm:ss a")+'"></span></p>');
+						}
+						else{
+							$('#chat-board').append('<p class="chat-message followup-message"> <span class="chat-message-details" style="background-color:'+color+';" title="'+time.format("dddd, MMMM Do YYYY, h:mm:ss a")+'"></span></p>');
+						}
 						var list = data.messages[i].content.split('\n');
 						var final = list.join('<br>');
 						$('.chat-message-details').last().html(final);
+						prevSender=username;
 							
 					}
 					$("#chat-board").animate({ scrollTop: $('#chat-board').prop("scrollHeight")}, 500);

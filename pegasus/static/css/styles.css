@@ -114,10 +114,7 @@ label{
 	width: 100%;
 	resize: none;
 }
-.chat-message{
-	font-weight: bold;
 
-}
 .form-control:hover{
 	background-color:#eee;
 	border-color: rgba(7, 200, 127, 1);
@@ -194,6 +191,9 @@ label{
 	font-size:1.5em;
 }
 
+.chat-username{
+	text-transform: uppercase;
+}
 .chat-message-date{
 	margin-right:0.5em;
 	margin-left: 0.2em;
@@ -208,14 +208,20 @@ label{
 	display: block;
 }
 
+
 .chat-message-top{
 	margin-bottom:0.5em;
 	display: block;
 }
 
 .chat-message{
+	font-weight: bold;
 	margin-bottom:2em;
 	margin-top: 2em;
+}
+
+.followup-message{
+	margin-top:-1.8em !important;
 }
 
 .top-date{
