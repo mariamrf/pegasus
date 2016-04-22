@@ -5,6 +5,7 @@
 	{% if not isDone %}
 	<button class='global-btn register-btn board-btn' title='Mark As Done' data-toggle='modal' data-target='#markAsDoneModal'><i class='fa fa-check'></i></button>
 	{% endif %}
+	<button class='global-btn register-btn board-btn' title='See Invited Users' data-toggle='modal' data-target='#invitedUsersModal'><i class='fa fa-users'></i></button>
 	<button class='global-btn register-btn board-btn' title='Edit Board' data-toggle='modal' data-target='#editModal'><i class='fa fa-pencil'></i></button>
 	<button class='global-btn register-btn board-btn' title='Invite Others' data-toggle='modal' data-target='#inviteModal'><i class='fa fa-envelope'></i></button>
 
@@ -44,6 +45,23 @@
 {% endblock %}
 {% block controller_modals %}
 {% if isOwner %}
+<!--Invited Users-->
+		<div class="modal fade bs-example-modal-sm" id="invitedUsersModal" tabindex="-1" role="dialog" aria-labelledby="invitedUsersLabel">
+		  <div class="modal-dialog" role="document">
+		    <div class="modal-content">
+		      <div class="modal-header">
+		        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+		        <h4 class="modal-title" id="invitedUsersLabel">Invited Users</h4>
+		      </div>
+		      <div class="modal-body" id="invited-users-modal-body">				 	
+		      	 <h4 class='text-center' id='invited-users-spinner'><i class="fa fa-spinner fa-pulse"></i></h4>
+				 <div id="invited-users-list">
+				 </div>
+		      </div>
+		    </div>
+		  </div>
+		</div>
+		<!--End Invited users-->
 <!--Delete board-->
 		<div class="modal fade" id="deleteModal" tabindex="-1" role="dialog" aria-labelledby="deleteLabel">
 		  <div class="modal-dialog" role="document">
@@ -162,10 +180,6 @@
 			$('#deleteModal').modal('toggle');
 		});
 
-		$('#do-not-mark-as-done').click(function(){
-			$('#markAsDoneModal').modal('toggle');
-		});
-
 		// CREATED_AT and DONE_AT in proper local format
 		var board_created = moment.utc('{{ created_at }}').local().format("dddd, MMMM Do YYYY, h:mm:ss a");
 		var board_done = moment.utc('{{ done_at }}').local().format("dddd, MMMM Do YYYY, h:mm:ss a");
@@ -188,6 +202,8 @@
 			if(temp){
 				INVITE = temp;
 			}
+
+
 
 		// GET MESSAGES
 			var B = {{ boardID }};
@@ -249,6 +265,67 @@
 		else // if it's done, only get messages once
 			getMessages();
 
+		// SEE INVITED PEOPLE
+		$('#invitedUsersModal').on('shown.bs.modal', function(){
+			// render list of forms that allows the creator to edit privileges (sp?)
+			$.ajax({
+				type: 'GET',
+				url: Flask.url_for('invited_users', {boardID:B}),
+				success: function(data){
+					$('#invited-users-spinner').remove();
+					if(data.error=='None'){
+						// we have invited users!
+						$('#invited-users-list').append('<div class="invited-users-title">Email <span class="edit-checkbox-title">Can Edit</span></div>');
+						for(var i=0; i<data.invited.length; i++){
+							var email = data.invited[i].userEmail;
+							var type = data.invited[i].type;
+							var checked="";
+							if(type=='edit'){
+								checked="checked";
+							}
+								$('#invited-users-list').append('<form class="edit-invited-form">'
+																+'<input type="hidden" name="_csrf_token" value="'+data.token+'"/>'
+																+'<input type="hidden" name="boardID" value="'+B+'"/>'
+																+'<input type="hidden" name="email" value="'+email+'"/>'
+																+'<input type="hidden" name="inviteType" value="'+type+'"/>'
+																+ email
+																+'<input name="type" type="checkbox" value="canEdit" aria-label="Enable or disable user\'s editing privileges." title="Can Edit" class="edit-checkbox" '+ checked +'/>'
+																+'</form>');
+							}
+							$('.edit-checkbox').bind('change', function(){
+									$(this).parent().submit();
+								});
+								$('.edit-invited-form').submit(function(event){
+									event.preventDefault();
+									$('.edit-checkbox').prop('disabled', true);
+									var d = $(this).serialize();
+									$.ajax({
+										method: 'POST',
+										async: false,
+										url: Flask.url_for('edit_invite'),
+										data: d,
+										success: function(data){
+											$('.edit-checkbox').prop('disabled', false);
+											if(data.error != 'None'){
+												$('#invitedUsersModal .modal-body').prepend('<div class="alert alert-warning" id="error-msg" role="alert">'+data.error+'</div>');
+											}
+											$("input[name='_csrf_token']").val(data.token);
+										}
+									});
+								});
+
+						}
+					else{
+						$('#invited-users-list').prepend('<li>'+data.error+'</li>');
+					}
+				}
+			});
+		});
+		$('#invitedUsersModal').on('hidden.bs.modal', function(){
+			$('#invited-users-modal-body').html("<h4 class='text-center' id='invited-users-spinner'><i class='fa fa-spinner fa-pulse'></i></h4>"
+				+"<div id='invited-users-list'></div>");
+		});
+		
 
 		// SEND MESSAGE
 			$('#chat-form').bind('submit', function(event){
@@ -355,6 +432,9 @@
 					}
 					
 				});
+			});
+			$('#do-not-mark-as-done').click(function(){
+				$('#markAsDoneModal').modal('toggle');
 			});
 			$("#markAsDoneModal").on("hidden.bs.modal", function(){
 	   			 $('#mark-as-done-msg').remove();

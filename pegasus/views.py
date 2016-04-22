@@ -341,6 +341,29 @@ def invite_user():
             new_token = generate_csrf_token()
     return jsonify(successful=successful, error=error, token=new_token)
 
+@app.route('/_editInvite', methods=['POST'])
+def edit_invite():
+    bid = int(request.form['boardID'])
+    em = request.form['email']
+    old_type = request.form['inviteType']
+    new_token = generate_csrf_token()
+    error = 'None'
+    if not session.get('logged_in') or not is_owner(bid, session['userid']):
+        abort(401)
+    else:
+        if old_type=='edit':
+            new_type = 'view'
+        elif old_type=='view':
+            new_type = 'edit'
+        else:
+            abort(400)
+        try:
+            g.db.execute('update invites set type=? where boardID=? and userEmail=?', [new_type, bid, em])
+            g.db.commit()
+        except sqlite3.Error as e:
+            error = e.args[0]
+        return jsonify(error=error, token=new_token)
+
 ## API (GET/POST)
 @app.route('/api/board/<boardID>/components', methods=['GET', 'POST']) # just all the components with everything there is to know about them for this phase
 def board_components(boardID):
@@ -382,7 +405,7 @@ def board_components(boardID):
         curDone = g.db.execute('select done_at from boards where id=?', [bid]).fetchone()
         done_at = datetime.strptime(curDone[0], '%Y-%m-%d %H:%M:%S.%f')
         if(done_at > datetime.utcnow()):
-            if session.get('logged_in'):
+            if session.get('logged_in') and auth['accessType'] == 'edit':
                 try:
                     g.db.execute('insert into board_content (boardID, userID, content) values (?, ?, ?)', [bid, session['userid'], msg])
                     g.db.commit()
@@ -420,3 +443,25 @@ def get_user(userID):
     except sqlite3.Error as e: # just in case
         error = e.args[0]
     return jsonify(error=error, username=username, name=name)
+
+@app.route('/api/invited/<boardID>', methods=['GET'])
+def invited_users(boardID):
+    error = 'None'
+    invited = 'None'
+    new_token = generate_csrf_token() # for the POST forms generated on the fly
+    bid = int(boardID)
+    if not session.get('logged_in') or not is_owner(bid, session['userid']):
+        abort(401)
+    else:
+        try:
+            cur = g.db.execute('select userEmail, type from invites where boardID=? order by invite_date', [bid]).fetchall()
+            if len(cur) == 0:
+                error = 'No one has been invited to this board yet.'
+            else:
+                invited = [dict(userEmail=row[0], type=row[1]) for row in cur]
+        except sqlite3.Error as e:
+            error = e.args[0]
+        return jsonify(error=error, invited=invited, token=new_token)
+
+
+

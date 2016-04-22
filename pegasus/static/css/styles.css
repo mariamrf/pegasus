@@ -69,8 +69,15 @@
 	margin-top:0.4em;
 }
 
+.edit-checkbox{
+	margin-left:0.2em !important;
+}
 label{
 	font-size:1.2em;
+}
+
+.checkbox-inline{
+	font-size: 1em;
 }
 .full-btn{
 	width:100%;
@@ -215,4 +222,28 @@ label{
 	text-transform: uppercase;
 	font-size:0.8em;
 	font-weight: bold;
+}
+
+#invited-users-list{
+	font-size: 1.1em;
+}
+
+#invited-users-list form{
+	margin-bottom: 1.5em;
+	border-bottom:2px solid #eee;
+}
+#invited-users-list input[type="checkbox"]{
+	/* All browsers except webkit*/
+  transform: scale(1.1);
+
+  /* Webkit browsers*/
+  -webkit-transform: scale(1.1);
+}
+#invited-users-list .edit-checkbox, #invited-users-list .edit-checkbox-title{
+	float:right;
+}
+#invited-users-list .invited-users-title{
+	font-weight: bold;
+	text-transform: uppercase;
+	margin-bottom: 1em;
 }
