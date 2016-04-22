@@ -171,14 +171,7 @@
 {% block scripts %}
 <script> // keeping it here because jinja-rendered urls below, for now.
 	$(function() {
-		// DELETE FORM LOGIC
-		$('#delete-this-board').click(function(){
-			$('#delete-form').submit();
-		});
 
-		$('#do-not-delete-this-board').click(function(){
-			$('#deleteModal').modal('toggle');
-		});
 
 		// CREATED_AT and DONE_AT in proper local format
 		var board_created = moment.utc('{{ created_at }}').local().format("dddd, MMMM Do YYYY, h:mm:ss a");
@@ -265,6 +258,46 @@
 		else // if it's done, only get messages once
 			getMessages();
 
+		{% if canEdit %}
+		// SEND MESSAGE
+			$('#chat-form').bind('submit', function(event){
+				event.preventDefault();
+				var message = $('#chat-textarea').val();
+				if(!message)
+					return false;
+				$('#chat-textarea').prop('disabled', true); // disable the textarea once we send
+				$.ajax({
+					async: false,
+					type: 'POST',
+					url: Flask.url_for('board_components', {boardID:B}),
+					data: {
+					'_csrf_token': $("input[name='_csrf_token']").val(),
+					'invite': INVITE,
+					'message': message
+					}, 
+					success: function(data){
+						if(data.error != 'None'){
+							$('#board-error').remove();
+							$('#board-header').append('<div class="alert alert-warning" id="board-error" role="alert">'+data.error+'</div>');
+						}
+						$("input[name='_csrf_token']").val(data.token);
+						$('#chat-textarea').val('');
+					},
+					error: function(message){
+						console.log(message);
+					}
+				}).always(function(){
+					$('#chat-textarea').prop('disabled', false); // re-enable once everything is done and tokens are re-assigned
+				});
+			});
+			$('#chat-textarea').keydown(function(event){ // submit chat when enter alone is pressed
+				if(event.keyCode==13 && !event.shiftKey){
+					$('#chat-form').submit();
+					return false;
+				}
+			});
+		{% endif %}
+		{% if isOwner %}
 		// SEE INVITED PEOPLE
 		$('#invitedUsersModal').on('shown.bs.modal', function(){
 			// render list of forms that allows the creator to edit privileges (sp?)
@@ -325,45 +358,16 @@
 			$('#invited-users-modal-body').html("<h4 class='text-center' id='invited-users-spinner'><i class='fa fa-spinner fa-pulse'></i></h4>"
 				+"<div id='invited-users-list'></div>");
 		});
-		
+		// DELETE FORM LOGIC
+		$('#delete-this-board').click(function(){
+			$('#delete-form').submit();
+		});
 
-		// SEND MESSAGE
-			$('#chat-form').bind('submit', function(event){
-				event.preventDefault();
-				var message = $('#chat-textarea').val();
-				if(!message)
-					return false;
-				$('#chat-textarea').prop('disabled', true); // disable the textarea once we send
-				$.ajax({
-					async: false,
-					type: 'POST',
-					url: Flask.url_for('board_components', {boardID:B}),
-					data: {
-					'_csrf_token': $("input[name='_csrf_token']").val(),
-					'invite': INVITE,
-					'message': message
-					}, 
-					success: function(data){
-						if(data.error != 'None'){
-							$('#board-error').remove();
-							$('#board-header').append('<div class="alert alert-warning" id="board-error" role="alert">'+data.error+'</div>');
-						}
-						$("input[name='_csrf_token']").val(data.token);
-						$('#chat-textarea').val('');
-					},
-					error: function(message){
-						console.log(message);
-					}
-				}).always(function(){
-					$('#chat-textarea').prop('disabled', false); // re-enable once everything is done and tokens are re-assigned
-				});
-			});
-			$('#chat-textarea').keydown(function(event){ // submit chat when enter alone is pressed
-				if(event.keyCode==13 && !event.shiftKey){
-					$('#chat-form').submit();
-					return false;
-				}
-			});
+		$('#do-not-delete-this-board').click(function(){
+			$('#deleteModal').modal('toggle');
+		});
+
+		
 
 
 		// INVITE PEOPLE
@@ -439,8 +443,9 @@
 			$("#markAsDoneModal").on("hidden.bs.modal", function(){
 	   			 $('#mark-as-done-msg').remove();
 			});
-
+			{% endif %}
 	      });
+
 	
 </script>
 {% endblock %}
