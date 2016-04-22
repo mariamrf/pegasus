@@ -34,6 +34,7 @@ def init_db():
 @app.before_request
 def before_request():
     g.db = connect_db()
+    g.db.execute('PRAGMA foreign_keys = ON')
 
 @app.before_request
 def csrf_protect():

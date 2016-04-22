@@ -202,6 +202,7 @@
 			var B = {{ boardID }};
 			var prev = 0;
 			var me = '{{ session.username }}';
+			var myemail = '{{ email }}';
 			function getMessages(){
 				$.ajax({
 					type: 'GET',
@@ -235,8 +236,8 @@
 							username = data.messages[i].userEmail;
 						var time = moment.utc(data.messages[i].created_at).local();
 						var color;
-						if(me != 'None' && me == username){
-							color='#eee';
+						if((me != 'None' && me == username) || (myemail != 'None' && myemail == username)){
+							color='#eee'; // if user logs in later with their email they'd see themselves as orange/foreign. TODO
 						}
 						else
 							color='rgba(243, 156, 18, 0.7)';
@@ -367,6 +368,9 @@
 			$('#deleteModal').modal('toggle');
 		});
 
+		$('#deleteModal').on('shown.bs.modal', function(){
+			$('#do-not-delete-this-board').focus();
+		});
 		
 
 
