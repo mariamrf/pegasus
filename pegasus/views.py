@@ -200,6 +200,31 @@ def delete_board():
             flash(error)
         return redirect(url_for('show_profile'))
 
+@app.route('/_removeSelf', methods=['POST'])
+def remove_self():
+    if not session.get('logged_in'):
+        abort(401)
+    else:
+        error = 'None'
+        person = session['userid']
+        bid = int(request.form['boardID'])
+        try:
+            cur = g.db.execute('select email from users where id=?', [person]).fetchone()
+            if cur is None:
+                abort(400)
+            else:
+                email = cur[0].lower()
+                g.db.execute('delete from invites where boardID=? and userEmail=?', [bid, email])
+                g.db.commit()
+        except sqlite3.Error as e:
+            error = e.args[0]
+        if(error=='None'):
+            flash('Successfully removed you from the board.')
+        else:
+            flash(error)
+        return redirect(url_for('index'))
+
+
 
 # AJAX functions
 ## GET

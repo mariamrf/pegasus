@@ -8,7 +8,8 @@
 	<button class='global-btn register-btn board-btn' title='See Invited Users' data-toggle='modal' data-target='#invitedUsersModal'><i class='fa fa-users'></i></button>
 	<button class='global-btn register-btn board-btn' title='Edit Board' data-toggle='modal' data-target='#editModal'><i class='fa fa-pencil'></i></button>
 	<button class='global-btn register-btn board-btn' title='Invite Others' data-toggle='modal' data-target='#inviteModal'><i class='fa fa-envelope'></i></button>
-
+{% else %}
+	<button class='global-btn register-btn delete-btn' title='Remove Yourself' data-toggle='modal' data-target='#removeSelfModal'><i class='fa fa-times'></i></button>
 {% endif %}
 {% endblock %}
 {% block content %}
@@ -165,7 +166,29 @@
 		</div>
 		<!--End Invite To Board-->
 
-
+{% elif session.logged_in and not isOwner%}
+<!--Remove self from board-->
+		<div class="modal fade" id="removeSelfModal" tabindex="-1" role="dialog" aria-labelledby="removeSelfLabel">
+		  <div class="modal-dialog" role="document">
+		    <div class="modal-content">
+		      <div class="modal-header">
+		        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+		        <h4 class="modal-title" id="removeSelfLabel">Remove Yourself</h4>
+		      </div>
+		      <div class="modal-body text-center">
+				  <h4>Are you sure you want to remove yourself from this board?</h4>
+				  <p>You will not be able to view or interact with the board unless the creator re-invites you.</p>
+				  <form id='remove-self-form' action="{{ url_for('remove_self') }}" method='post'>
+				  	<input type='hidden' name='_csrf_token' value='{{ csrf_token() }}'>
+				  	<input type='hidden' name='boardID' value='{{ boardID }}'>
+				  </form>
+				  <button id='remove-thyself' class='global-btn half-btn delete-btn'>Yes</button>
+				  <button id='do-not-remove-thyself' class='global-btn half-btn neutral-btn'>No</button>
+		      </div>
+		    </div>
+		  </div>
+		</div>
+		<!--Remove self from board-->
 {% endif %}
 {% endblock %}
 {% block scripts %}
@@ -173,7 +196,19 @@
 <script> // keeping it here because jinja-rendered urls below, for now.
 	$(function() {
 
+		{% if not isOwner and session.logged_in %}
+			$('#remove-thyself').click(function(){
+			$('#remove-self-form').submit();
+		});
 
+		$('#do-not-remove-thyself').click(function(){
+			$('#removeSelfModal').modal('toggle');
+		});
+
+		$('#removeSelfModal').on('shown.bs.modal', function(){
+			$('#do-not-remove-thyself').focus();
+		});
+		{% endif %}
 		// CREATED_AT and DONE_AT in proper local format
 		var board_created = moment.utc('{{ created_at }}').local().format("dddd, MMMM Do YYYY, h:mm:ss a");
 		var board_done = moment.utc('{{ done_at }}').local().format("dddd, MMMM Do YYYY, h:mm:ss a");
