@@ -15,14 +15,25 @@
 {% block content %}
 <div class='row'>
 	<div class='col-xs-12' id='board-header'>
-		<h2><span id='board-title'>{{title}}</span><small class='hidden-xs hidden-sm'> Created: <span id='board-created-at' class='top-date'></span>. Done: <span id='board-done-at' class='top-date'></span></small></h2>
-		{% if not session.logged_in %}<p class='text-center'>Welcome, {{email}}! You've been invited!</p>{% endif %}
-		{% if isOwner %}You're the owner!{% endif %}
-		{% if isDone %}<p>This board is done!</p>{% endif %}
+	{% if not session.logged_in %}
+		<div class="alert alert-success">
+		  <a href="#" class="close" data-dismiss="alert" aria-label="close">&times;</a>
+		  <strong>Welcome, {{email}}!</strong> You've been invited! Sign up/Login to continue with your username.
+		</div>
+	{% endif %}
+		<h2><span id='board-title'>{{title}}</span><small class='hidden-xs hidden-sm'> <i id="time-until-done" {% if isDone %} class="fa fa-exclamation-circle" {% else %} class="fa fa-hourglass-half" {% endif %}></i> <i id="whoami-rank" {% if isOwner %} class="fa fa-check-circle" title="You're the owner." {% elif canEdit and not isOwner %} class="fa fa-pencil" title="You can edit" {% else %} class="fa fa-eye" title="You can only view" {% endif %}></i></small></h2>
 	</div>
 </div>
 	<div class='row'>
-		<div class='col-xs-12'>
+	<!--CANVAS SECTION-->
+	<div class='col-xs-12 col-md-9'>
+		<h4 id='canvas-section-identifier' class='section-identifier global-btn'>Canvas</h4>
+		<ul id='board-draggable'></ul>
+	</div>
+	<!--END CANVAS SECTION-->
+	<!--CHAT SECTION-->
+		<div class='col-xs-12 col-md-3'>
+			<h4 id='chat-section-identifier' class='section-identifier global-btn'>Chat</h4>
 			<div id='chat-board'>
 			<h1 id='chat-board-spinner' class='text-center' title="Loading chat.."><i class="fa fa-pulse fa-spinner"></i><h1>
 			</div>
@@ -37,6 +48,7 @@
 			</form>
 	{% endif %}
 	<!--End Chat box-->
+	<!--END CHAT SECTION-->
 
 		</div>
 	</div>
@@ -193,8 +205,20 @@
 {% endblock %}
 {% block scripts %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/randomcolor/0.4.4/randomColor.min.js"></script>
+<script src="{{ url_for('static', filename='js/jquery.gridster.min.js') }}"></script>
 <script> // keeping it here because jinja-rendered urls below, for now.
 	$(function() {
+		$('#time-until-done').on('mouseover', function(){
+			$(this).prop('title', 'loading..');
+			var board_done = moment.utc('{{ done_at }}').local();
+			var form = board_done.format("dddd, MMMM Do YYYY, h:mm:ss a");
+			{% if isDone %}
+			$(this).prop('title', 'Expired on ' + form);
+			{% else %}
+			var toFuture = board_done.fromNow();
+			$(this).prop('title', 'Expires ' + toFuture + ".\nOn " + form);
+			{% endif %}
+		});
 
 		{% if not isOwner and session.logged_in %}
 			$('#remove-thyself').click(function(){

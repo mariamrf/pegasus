@@ -253,3 +253,18 @@ label{
 	text-transform: uppercase;
 	margin-bottom: 1em;
 }
+
+.section-identifier{
+	font-weight: bold;
+	text-transform: uppercase;
+	background-color: rgb(98,77,130);
+}
+
+.section-identifier:hover{
+	background-color: white;
+	color: rgb(98,77,130);
+}
+
+#time-until-done{
+	font-size: 0.9em;
+}
