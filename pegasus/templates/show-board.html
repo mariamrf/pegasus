@@ -192,7 +192,7 @@
 {% endif %}
 {% endblock %}
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/flatcolor.js') }}"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/randomcolor/0.4.4/randomColor.min.js"></script>
 <script> // keeping it here because jinja-rendered urls below, for now.
 	$(function() {
 
@@ -288,9 +288,8 @@
 								color = colors[username];
 							}
 							else{
-								var deg = Math.floor((Math.random() * 360) + 1); // another step to avoid similar colors
-								var c = new flatColor(deg);
-								color = 'rgba(' + c.rgbString + ',0.3)';
+								var c = randomColor({format: 'rgb'});
+								color = 'rgba'+ c.slice(3,15) + ',0.4)';
 								colors[username] = color;
 							}
 						}
