@@ -21,14 +21,18 @@
 		  <strong>Welcome, {{email}}!</strong> You've been invited! Sign up/Login to continue with your username.
 		</div>
 	{% endif %}
-		<h2><span id='board-title'>{{title}}</span><small class='hidden-xs hidden-sm'> <i id="time-until-done" {% if isDone %} class="fa fa-exclamation-circle" {% else %} class="fa fa-hourglass-half" {% endif %}></i> <i id="whoami-rank" {% if isOwner %} class="fa fa-check-circle" title="You're the owner." {% elif canEdit and not isOwner %} class="fa fa-pencil" title="You can edit" {% else %} class="fa fa-eye" title="You can only view" {% endif %}></i></small></h2>
+		<h2><span id='board-title'>{{title}}</span><small class='hidden-xs hidden-sm'> <i id="time-until-done" {% if isDone %} class="fa fa-exclamation-circle" {% else %} class="fa fa-hourglass-half" {% endif %}></i> <i id="whoami-rank" {% if isOwner %} class="fa fa-check-circle" title="You're the owner" {% elif canEdit and not isOwner %} class="fa fa-pencil" title="You can edit" {% else %} class="fa fa-eye" title="You can only view" {% endif %}></i></small></h2>
 	</div>
 </div>
 	<div class='row'>
 	<!--CANVAS SECTION-->
 	<div class='col-xs-12 col-md-9'>
 		<h4 id='canvas-section-identifier' class='section-identifier global-btn'>Canvas</h4>
-		<ul id='board-draggable'></ul>
+		<div id="board-tools">
+			<input type="hidden" name="_csrf_token" id="add-component-token" value="{{ csrf_token() }}" />
+			<span class='global-btn tool-btn' id="tool-add-text" title='Add Text'><i class='fa fa-font'></i></span>
+		</div>
+		<div id="board-grid"></div>
 	</div>
 	<!--END CANVAS SECTION-->
 	<!--CHAT SECTION-->
@@ -205,9 +209,12 @@
 {% endblock %}
 {% block scripts %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/randomcolor/0.4.4/randomColor.min.js"></script>
-<script src="{{ url_for('static', filename='js/jquery.gridster.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/jquery-ui.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/jquery.ui.touch-punch.min.js') }}"></script>
 <script> // keeping it here because jinja-rendered urls below, for now.
 	$(function() {
+
+		// EXPIRATION ICON
 		$('#time-until-done').on('mouseover', function(){
 			$(this).prop('title', 'loading..');
 			var board_done = moment.utc('{{ done_at }}').local();
@@ -276,8 +283,9 @@
 					type: 'GET',
 					url: Flask.url_for('board_components', {boardID:B}),
 					data: {
-							invite: INVITE,
-							number: prev
+							'invite': INVITE,
+							'number': prev,
+							'type': 'chat'
 						}, 
 					success: function(data){
 						$('#chat-board-spinner').remove();
@@ -356,7 +364,8 @@
 					data: {
 					'_csrf_token': $("input[name='_csrf_token']").val(),
 					'invite': INVITE,
-					'message': message
+					'message': message,
+					'type': 'chat'
 					}, 
 					success: function(data){
 						if(data.error != 'None'){
@@ -441,6 +450,51 @@
 			$('#invited-users-modal-body').html("<h4 class='text-center' id='invited-users-spinner'><i class='fa fa-spinner fa-pulse'></i></h4>"
 				+"<div id='invited-users-list'></div>");
 		});
+		// ADD TEXT COMPONENT
+				// GRID
+		$('#tool-add-text').click(function(){
+			$('#board-grid').prepend('<form class="text-create-form"><input type="text" name="message" class="text-create-input"/></form>');
+			$('.text-create-input').focus();
+			$('.text-create-form').bind('submit', function(event){
+				event.preventDefault();
+				var valText = $("input[name='message']", this).val();
+				$.ajax({
+					method: 'POST',
+					async: false,
+					url: Flask.url_for('board_components', {boardID:B}),
+					data: {
+						'_csrf_token': $("input[name='_csrf_token']").val(),
+						'invite': INVITE,
+						'type': 'text',
+						'message' : valText
+						
+					},
+					success: function(data){
+						if(data.error=='None'){
+							$('.text-create-form').remove();
+							var elementID = data.componentID;
+							console.log(elementID);
+							$('#board-grid').prepend('<span class="draggable-text" id="text-'+elementID+'">'+valText+'</span>');
+							$('#text-' + elementID).draggable({
+								containment: '#board-grid',
+								cursor: 'move'
+							});
+						}
+						else{
+							console.log(data.error);
+						}
+						$("input[name='_csrf_token']").val(data.token);
+					},
+					error: function(error){
+						console.log(error);
+					}
+				});
+			});
+		});
+
+
+
+
 		// DELETE FORM LOGIC
 		$('#delete-this-board').click(function(){
 			$('#delete-form').submit();

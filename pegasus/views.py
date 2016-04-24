@@ -414,7 +414,8 @@ def board_components(boardID):
     ### GET COMPONENTS
     if request.method == 'GET':
         # no need for extra auth here as everyone with access to the board can see everything
-        cur2 = g.db.execute('select id, content, userID, userEmail, created_at from board_content where boardID=? order by created_at', [bid]).fetchall()
+        tyGet = request.args.get('type', 0, str)
+        cur2 = g.db.execute('select id, content, userID, userEmail, created_at from board_content where boardID=? and type=? order by created_at', [bid, tyGet]).fetchall()
         if len(cur2) > request.args.get('number', 0, int): # this only works because nobody can delete a message, obvs not good for the long run
             messages_sliced = islice(cur2, request.args.get('number', 0, int), None)
             messages = [dict(id=row[0], content=row[1], userID=row[2], userEmail=row[3], created_at=row[4]) for row in messages_sliced]
@@ -426,14 +427,18 @@ def board_components(boardID):
     elif request.method == 'POST':
         new_token = generate_csrf_token()
         msg = request.form['message']
+        ty = request.form['type']
         error = 'None'
         curDone = g.db.execute('select done_at from boards where id=?', [bid]).fetchone()
         done_at = datetime.strptime(curDone[0], '%Y-%m-%d %H:%M:%S.%f')
         if(done_at > datetime.utcnow()):
             if session.get('logged_in') and auth['accessType'] == 'edit':
                 try:
-                    g.db.execute('insert into board_content (boardID, userID, content) values (?, ?, ?)', [bid, session['userid'], msg])
+                    cursor = g.db.cursor()
+                    cursor.execute('insert into board_content (boardID, userID, content, type) values (?, ?, ?, ?)', [bid, session['userid'], msg, ty])
                     g.db.commit()
+                    componentID = cursor.lastrowid
+                    cursor.close()
                 except sqlite3.Error as e:
                     error = e.args[0]
             else: # has an invite, if they made it this far
@@ -442,13 +447,16 @@ def board_components(boardID):
                 if ty != 'edit':
                     abort(401)
                 try:
-                    g.db.execute('insert into board_content (boardID, userEmail, content) values (?, ?, ?)', [bid, em, msg])
+                    cursor = g.db.cursor()
+                    cursor.execute('insert into board_content (boardID, userEmail, content, type) values (?, ?, ?, ?)', [bid, em, msg, ty])
                     g.db.commit()
+                    componentID = cursor.lastrowid
+                    cursor.close()
                 except sqlite3.Error as e:
                     error = e.args[0]
         else:
             error = 'This board was marked as done by its creator, you cannot make any more changes.'
-        return jsonify(error=error, token=new_token)
+        return jsonify(error=error, token=new_token, componentID=componentID)
 
 
 @app.route('/api/user/<userID>', methods=['GET'])

@@ -38,10 +38,10 @@ def before_request():
 
 @app.before_request
 def csrf_protect():
-	if request.method == 'POST': # GET/ajax protection can be defined in their respective functions
-		token = session.pop('_csrf_token', None)
-		if not token or token != request.form.get('_csrf_token'):
-			abort(400) 
+    if request.method == 'POST': # GET/ajax protection can be defined in their respective functions
+        token = session.pop('_csrf_token', None)
+        if not token or token != request.form.get('_csrf_token'):
+            abort(400) 
 
 @app.teardown_request
 def teardown_request(exception):

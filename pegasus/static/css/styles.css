@@ -257,7 +257,7 @@ label{
 .section-identifier{
 	font-weight: bold;
 	text-transform: uppercase;
-	background-color: rgb(98,77,130);
+	background-color: rgb(98,77,130); /* GLOBAL PURPLE */
 }
 
 .section-identifier:hover{
@@ -268,3 +268,37 @@ label{
 #time-until-done{
 	font-size: 0.9em;
 }
+
+#board-grid{
+	min-height: 77vh;
+}
+.draggable-text{
+	font-size:1.3em;
+	padding:0.1em;
+	text-align:center;
+	left:0;
+	top:0;
+
+}
+.draggable-text:hover{
+	cursor: move;
+	border:1px dashed rgb(98,77,130);
+}
+
+#board-tools{
+	border-bottom:2px solid rgb(98,77,130);
+	padding-bottom:0.5em;
+	margin-bottom:0.5em;
+}
+
+.tool-btn{
+	font-size:0.9em;
+}
+
+.tool-btn:hover{
+	cursor: pointer;
+}
+
+
+
+
