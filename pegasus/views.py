@@ -415,11 +415,10 @@ def board_components(boardID):
     ### GET COMPONENTS
     if request.method == 'GET':
         # no need for extra auth here as everyone with access to the board can see everything
-        tyGet = request.args.get('type', 0, str)
-        cur2 = g.db.execute('select id, content, userID, userEmail, created_at from board_content where boardID=? and type=? order by created_at', [bid, tyGet]).fetchall()
-        if len(cur2) > request.args.get('number', 0, int): # this only works because nobody can delete a message, obvs not good for the long run
-            messages_sliced = islice(cur2, request.args.get('number', 0, int), None)
-            messages = [dict(id=row[0], content=row[1], userID=row[2], userEmail=row[3], created_at=row[4]) for row in messages_sliced]
+        lastClientGot = request.args.get('lastModified', 0, str)
+        cur2 = g.db.execute('select id, content, userID, userEmail, created_at, last_modified_at, last_modified_by, type from board_content where boardID=? and ((type!=? and last_modified_at > ?) or (type=? and created_at > ?)) order by created_at', [bid, 'chat', lastClientGot,'chat', lastClientGot]).fetchall()
+        if len(cur2) > 0: # this only works because nobody can delete a message, obvs not good for the long run
+            messages = [dict(id=row[0], content=row[1], userID=row[2], userEmail=row[3], created_at=row[4], last_modified_at=row[5], last_modified_by=row[6], type=row[7]) for row in cur2]
             return jsonify(messages=messages)
         else:
             er = 'No new'
@@ -428,7 +427,7 @@ def board_components(boardID):
     elif request.method == 'POST':
         new_token = generate_csrf_token()
         msg = request.form['message']
-        ty = request.form['type']
+        ty = request.form['content-type']
         error = 'None'
         curDone = g.db.execute('select done_at from boards where id=?', [bid]).fetchone()
         done_at = datetime.strptime(curDone[0], '%Y-%m-%d %H:%M:%S.%f')
@@ -443,9 +442,9 @@ def board_components(boardID):
                 except sqlite3.Error as e:
                     error = e.args[0]
             else: # has an invite, if they made it this far
-                ty = cur[0]
+                inviteTy = cur[0]
                 em = cur[1]
-                if ty != 'edit':
+                if inviteTy != 'edit':
                     abort(401)
                 try:
                     cursor = g.db.cursor()
@@ -510,18 +509,22 @@ def edit_component(componentID, boardID):
             abort(401)
         elif cur[0] != 'edit':
             abort(401)
+        else:
+            mod = cur[1]
     else:
         auth = is_authorized(bid)
         if not auth['access'] or not auth['accessType'] == 'edit':
             abort(401)
+        else:
+            mod = session['userid']
     # if we get this far, user has editing access
     msg = request.form['message']
-    ty = request.form['type']
+    ty = request.form['content-type']
     curDone = g.db.execute('select done_at from boards where id=?', [bid]).fetchone()
     done_at = datetime.strptime(curDone[0], '%Y-%m-%d %H:%M:%S.%f')
     if done_at > datetime.utcnow():
         try:
-            g.db.execute('update board_content set content=? where id=? and boardID=? and type=?', [msg, cid, bid, ty])
+            g.db.execute('update board_content set content=?, last_modified_at=?, last_modified_by=? where id=? and boardID=? and type=?', [msg, datetime.utcnow(), mod, cid, bid, ty])
             g.db.commit()
         except sqlite3.Error as e:
             error = e.args[0]

@@ -41,7 +41,7 @@ var TextElement = function(softID, canvasID, boardID, invite){
 			data:{
 				'_csrf_token': $("input[name='_csrf_token']").val(),
 				'invite': self.invite,
-				'type': 'text',
+				'content-type': 'text',
 				'message': message
 			},
 			success: function(data){

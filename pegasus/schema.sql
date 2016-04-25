@@ -31,6 +31,8 @@ create table board_content (
 	userID integer, /* null if user is not logged in */
 	userEmail text, /* only has values if user is not logged in, not refreshed if user is registered/changed address/etc */
 	created_at datetime default current_timestamp,
+	last_modified_at datetime,
+	last_modified_by text, /* UserID for logged in, or Email for Invited */
 	FOREIGN KEY (boardID) REFERENCES boards(id) ON DELETE CASCADE,
 	FOREIGN KEY (userID) REFERENCES users(id)
 );

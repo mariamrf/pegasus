@@ -270,7 +270,6 @@
 
 		// GET MESSAGES
 			var B = {{ boardID }};
-			var prev = 0;
 			var me = '{{ session.username }}';
 			var myemail = '{{ email }}';
 			var whoami;
@@ -281,71 +280,78 @@
 			var colors = {};
 			colors[whoami] = '#eee';
 			var prevSender = '';
+			var lastModified = '0';
 			function getMessages(){
 				$.ajax({
 					type: 'GET',
 					url: Flask.url_for('board_components', {boardID:B}),
 					data: {
 							'invite': INVITE,
-							'number': prev,
-							'type': 'chat'
+							'lastModified': lastModified
 						}, 
 					success: function(data){
 						$('#chat-board-spinner').remove();
-					if(!data.error){ // has new messages
-						for(var i=0; i<data.messages.length; i++){ 
-						var username;
-						if (data.messages[i].userID){
-							var id = data.messages[i].userID; // get username from db
-							$.ajax({
-								type: 'GET',
-								url: Flask.url_for('get_user', {userID:id}),
-								async: false, // so we can actually set the username through it
-								dataType: 'json',
-								success: function(d){
-									if(d.error == 'None'){
-									username = d.username;
-								}
-								else // if username was not found/user was later deleted/etc, though deleting/deactivating should be 'soft'
-									username = id;
-								}
-							});
-						}
-						else
-							username = data.messages[i].userEmail;
-						var time = moment.utc(data.messages[i].created_at).local();
-						var color;
-						if(username==whoami){
-							color = colors[whoami];
-						}
-						else{
-							if(username in colors){
-								color = colors[username];
+						if(!data.error){ // has new messages
+							for(var i=0; i<data.messages.length; i++){ 
+							var username;
+							if (data.messages[i].userID){
+								var id = data.messages[i].userID; // get username from db
+								$.ajax({
+									type: 'GET',
+									url: Flask.url_for('get_user', {userID:id}),
+									async: false, // so we can actually set the username through it
+									dataType: 'json',
+									success: function(d){
+										if(d.error == 'None'){
+										username = d.username;
+									}
+									else // if username was not found/user was later deleted/etc, though deleting/deactivating should be 'soft'
+										username = id;
+									}
+								});
+							}
+							else
+								username = data.messages[i].userEmail;
+							var time = moment.utc(data.messages[i].created_at).local();
+							var color;
+							if(username==whoami){
+								color = colors[whoami];
 							}
 							else{
+								if(username in colors)
+									color = colors[username];
+								else{
 								var c = randomColor({format: 'rgb'});
 								color = 'rgba'+ c.slice(3,15) + ',0.4)';
 								colors[username] = color;
+								}
+							}
+							if(data.messages[i].type=='chat'){
+								if(username!=prevSender){
+								$('#chat-board').append('<p class="chat-message"> <span class="chat-message-top"><span class="chat-message-date"><i class="fa fa-dot-circle-o"></i></span><span class="chat-username">' + username + '</span>:</span> <span class="chat-message-details" style="background-color:'+color+';" title="'+time.format("dddd, MMMM Do YYYY, h:mm:ss a")+'"></span></p>');
+								}
+								else{
+									$('#chat-board').append('<p class="chat-message followup-message"> <span class="chat-message-details" style="background-color:'+color+';" title="'+time.format("dddd, MMMM Do YYYY, h:mm:ss a")+'"></span></p>');
+								}
+								var list = data.messages[i].content.split('\n');
+								var final = list.join('<br>');
+								$('.chat-message-details').last().html(final);
+								prevSender=username;
+								if(data.messages[i].created_at > lastModified)
+									lastModified = data.messages[i].created_at;
+							}
+							else{
+							// OTHER BOARD CONTENT THAN CHAT
+							if(data.messages[i].last_modified_at > lastModified)
+								lastModified = data.messages[i].last_modified_at;
+							}
+							$("#chat-board").animate({ scrollTop: $('#chat-board').prop("scrollHeight")}, 500);
+
 							}
 						}
-						if(username!=prevSender){
-							$('#chat-board').append('<p class="chat-message"> <span class="chat-message-top"><span class="chat-message-date"><i class="fa fa-dot-circle-o"></i></span><span class="chat-username">' + username + '</span>:</span> <span class="chat-message-details" style="background-color:'+color+';" title="'+time.format("dddd, MMMM Do YYYY, h:mm:ss a")+'"></span></p>');
-						}
-						else{
-							$('#chat-board').append('<p class="chat-message followup-message"> <span class="chat-message-details" style="background-color:'+color+';" title="'+time.format("dddd, MMMM Do YYYY, h:mm:ss a")+'"></span></p>');
-						}
-						var list = data.messages[i].content.split('\n');
-						var final = list.join('<br>');
-						$('.chat-message-details').last().html(final);
-						prevSender=username;
-							
-					}
-					$("#chat-board").animate({ scrollTop: $('#chat-board').prop("scrollHeight")}, 500);
-					prev+=data.messages.length;
-					}
-				}
-			});
-		}
+					} //end success
+				});
+			}
 		var isDone = '{{ isDone }}';
 		if(isDone != 'True')
 			window.setInterval(getMessages, 1000);
@@ -368,7 +374,7 @@
 					'_csrf_token': $("input[name='_csrf_token']").val(),
 					'invite': INVITE,
 					'message': message,
-					'type': 'chat'
+					'content-type': 'chat'
 					}, 
 					success: function(data){
 						if(data.error != 'None'){
@@ -452,15 +458,6 @@
 		$('#invitedUsersModal').on('hidden.bs.modal', function(){
 			$('#invited-users-modal-body').html("<h4 class='text-center' id='invited-users-spinner'><i class='fa fa-spinner fa-pulse'></i></h4>"
 				+"<div id='invited-users-list'></div>");
-		});
-
-		// ADD TEXT COMPONENT
-		var ALL_TEXT_ELEMENTS = [];
-		$('#tool-add-text').click(function(){
-			var n = ALL_TEXT_ELEMENTS.length + 'S'; // softID, position in array + S so no conflicts with the actual component ID
-			var temp = new TextElement(n, '#board-grid', B, INVITE);
-			temp.create();
-			ALL_TEXT_ELEMENTS.push(temp);
 		});
 
 
@@ -555,6 +552,16 @@
 	   			 $('#mark-as-done-msg').remove();
 			});
 			{% endif %}
+		{% if canEdit %}
+		// ADD TEXT COMPONENT
+		var ALL_TEXT_ELEMENTS = [];
+		$('#tool-add-text').click(function(){
+			var n = ALL_TEXT_ELEMENTS.length + 'S'; // softID, position in array + S so no conflicts with the actual component ID
+			var temp = new TextElement(n, '#board-grid', B, INVITE);
+			temp.create();
+			ALL_TEXT_ELEMENTS.push(temp);
+		});
+		{% endif %}
 	      });
 
 	
