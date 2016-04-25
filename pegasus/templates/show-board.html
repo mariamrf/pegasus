@@ -28,10 +28,12 @@
 	<!--CANVAS SECTION-->
 	<div class='col-xs-12 col-md-9'>
 		<h4 id='canvas-section-identifier' class='section-identifier global-btn'>Canvas</h4>
+		{% if canEdit %}
 		<div id="board-tools">
 			<input type="hidden" name="_csrf_token" id="add-component-token" value="{{ csrf_token() }}" />
 			<span class='global-btn tool-btn' id="tool-add-text" title='Add Text'><i class='fa fa-font'></i></span>
 		</div>
+		{% endif %}
 		<div id="board-grid"></div>
 	</div>
 	<!--END CANVAS SECTION-->
@@ -211,6 +213,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/randomcolor/0.4.4/randomColor.min.js"></script>
 <script src="{{ url_for('static', filename='js/jquery-ui.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/jquery.ui.touch-punch.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/board-elements.js') }}"></script>
 <script> // keeping it here because jinja-rendered urls below, for now.
 	$(function() {
 
@@ -450,56 +453,14 @@
 			$('#invited-users-modal-body').html("<h4 class='text-center' id='invited-users-spinner'><i class='fa fa-spinner fa-pulse'></i></h4>"
 				+"<div id='invited-users-list'></div>");
 		});
+
 		// ADD TEXT COMPONENT
-				// GRID
+		var ALL_TEXT_ELEMENTS = [];
 		$('#tool-add-text').click(function(){
-			if(!$('.text-create-form').length){
-				$('#board-grid').prepend('<form class="text-create-form"><textarea name="message" class="text-create-input"></textarea></form>');
-			}
-			$('.text-create-input').focus();
-			$('.text-create-input').bind('blur', function(){
-				$('.text-create-form').submit();
-			});
-			$('.text-create-input').keydown(function(event){ // submit chat when enter alone is pressed
-				if(event.keyCode==13 && !event.shiftKey){
-					$('.text-create-form').submit();
-					return false;
-				}
-			});
-			$('.text-create-form').bind('submit', function(event){
-				event.preventDefault();
-				var valText = $("textarea[name='message']", this).val();
-				$.ajax({
-					method: 'POST',
-					async: false,
-					url: Flask.url_for('board_components', {boardID:B}),
-					data: {
-						'_csrf_token': $("input[name='_csrf_token']").val(),
-						'invite': INVITE,
-						'type': 'text',
-						'message' : valText
-						
-					},
-					success: function(data){
-						if(data.error=='None'){
-							$('.text-create-form').remove();
-							var elementID = data.componentID;
-							$('#board-grid').prepend('<span class="draggable-text" id="text-'+elementID+'"></span>');
-							var list = valText.split('\n');
-							var final = list.join('<br>');
-							$('#text-' + elementID).html(final);
-							$('#text-' + elementID).draggable({
-								containment: '#board-grid',
-								cursor: 'move'
-							});
-						}
-						else{
-							$('#board-grid').prepend('<div id="board-error" class="alert alert-warning"><a href="#" class="close" data-dismiss="alert" aria-label="close">&times;</a><strong>Error: </strong>'+data.error+'</div>');
-						}
-						$("input[name='_csrf_token']").val(data.token);
-					}
-				});
-			});
+			var n = ALL_TEXT_ELEMENTS.length + 'S'; // softID, position in array + S so no conflicts with the actual component ID
+			var temp = new TextElement(n, '#board-grid', B, INVITE);
+			temp.create();
+			ALL_TEXT_ELEMENTS.push(temp);
 		});
 
 

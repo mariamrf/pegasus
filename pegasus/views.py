@@ -59,6 +59,7 @@ def is_authorized(boardID):
 
 
 
+
     
 # routing (views)
 @app.route('/')
@@ -495,6 +496,38 @@ def invited_users(boardID):
         except sqlite3.Error as e:
             error = e.args[0]
         return jsonify(error=error, invited=invited, token=new_token)
+
+@app.route('/api/edit/board/<boardID>/component/<componentID>', methods=['POST'])
+def edit_component(componentID, boardID):
+    error = 'None'
+    new_token = generate_csrf_token()
+    bid = int(boardID)
+    cid = int(componentID)
+    inv = request.form['invite']
+    if inv != '-1' and not session.get('logged_in'): # don't care if there's an invite string as long as they're logged in
+        cur = g.db.execute('select type, userEmail from invites where id=? and boardID=?', [inv, bid]).fetchone()
+        if cur is None:
+            abort(401)
+        elif cur[0] != 'edit':
+            abort(401)
+    else:
+        auth = is_authorized(bid)
+        if not auth['access'] or not auth['accessType'] == 'edit':
+            abort(401)
+    # if we get this far, user has editing access
+    msg = request.form['message']
+    ty = request.form['type']
+    curDone = g.db.execute('select done_at from boards where id=?', [bid]).fetchone()
+    done_at = datetime.strptime(curDone[0], '%Y-%m-%d %H:%M:%S.%f')
+    if done_at > datetime.utcnow():
+        try:
+            g.db.execute('update board_content set content=? where id=? and boardID=? and type=?', [msg, cid, bid, ty])
+            g.db.commit()
+        except sqlite3.Error as e:
+            error = e.args[0]
+    else:
+        error = 'This board was marked done by its creator. You cannot make any more changes.'
+    return jsonify(error=error, token=new_token)
 
 
 
