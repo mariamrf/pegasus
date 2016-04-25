@@ -453,11 +453,22 @@
 		// ADD TEXT COMPONENT
 				// GRID
 		$('#tool-add-text').click(function(){
-			$('#board-grid').prepend('<form class="text-create-form"><input type="text" name="message" class="text-create-input"/></form>');
+			if(!$('.text-create-form').length){
+				$('#board-grid').prepend('<form class="text-create-form"><textarea name="message" class="text-create-input"></textarea></form>');
+			}
 			$('.text-create-input').focus();
+			$('.text-create-input').bind('blur', function(){
+				$('.text-create-form').submit();
+			});
+			$('.text-create-input').keydown(function(event){ // submit chat when enter alone is pressed
+				if(event.keyCode==13 && !event.shiftKey){
+					$('.text-create-form').submit();
+					return false;
+				}
+			});
 			$('.text-create-form').bind('submit', function(event){
 				event.preventDefault();
-				var valText = $("input[name='message']", this).val();
+				var valText = $("textarea[name='message']", this).val();
 				$.ajax({
 					method: 'POST',
 					async: false,
@@ -473,20 +484,19 @@
 						if(data.error=='None'){
 							$('.text-create-form').remove();
 							var elementID = data.componentID;
-							console.log(elementID);
-							$('#board-grid').prepend('<span class="draggable-text" id="text-'+elementID+'">'+valText+'</span>');
+							$('#board-grid').prepend('<span class="draggable-text" id="text-'+elementID+'"></span>');
+							var list = valText.split('\n');
+							var final = list.join('<br>');
+							$('#text-' + elementID).html(final);
 							$('#text-' + elementID).draggable({
 								containment: '#board-grid',
 								cursor: 'move'
 							});
 						}
 						else{
-							console.log(data.error);
+							$('#board-grid').prepend('<div id="board-error" class="alert alert-warning"><a href="#" class="close" data-dismiss="alert" aria-label="close">&times;</a><strong>Error: </strong>'+data.error+'</div>');
 						}
 						$("input[name='_csrf_token']").val(data.token);
-					},
-					error: function(error){
-						console.log(error);
 					}
 				});
 			});

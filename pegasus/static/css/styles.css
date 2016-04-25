@@ -275,10 +275,10 @@ label{
 .draggable-text{
 	font-size:1.3em;
 	padding:0.1em;
-	text-align:center;
+	text-align:left;
 	left:0;
 	top:0;
-
+	display: inline-block;
 }
 .draggable-text:hover{
 	cursor: move;
