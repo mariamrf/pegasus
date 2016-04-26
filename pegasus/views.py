@@ -416,9 +416,9 @@ def board_components(boardID):
     if request.method == 'GET':
         # no need for extra auth here as everyone with access to the board can see everything
         lastClientGot = request.args.get('lastModified', 0, str)
-        cur2 = g.db.execute('select id, content, userID, userEmail, created_at, last_modified_at, last_modified_by, type from board_content where boardID=? and ((type!=? and last_modified_at > ?) or (type=? and created_at > ?)) order by created_at', [bid, 'chat', lastClientGot,'chat', lastClientGot]).fetchall()
+        cur2 = g.db.execute('select id, content, userID, userEmail, created_at, last_modified_at, last_modified_by, type, position from board_content where boardID=? and last_modified_at > ? order by created_at', [bid, lastClientGot]).fetchall()
         if len(cur2) > 0: # this only works because nobody can delete a message, obvs not good for the long run
-            messages = [dict(id=row[0], content=row[1], userID=row[2], userEmail=row[3], created_at=row[4], last_modified_at=row[5], last_modified_by=row[6], type=row[7]) for row in cur2]
+            messages = [dict(id=row[0], content=row[1], userID=row[2], userEmail=row[3], created_at=row[4], last_modified_at=row[5], last_modified_by=row[6], type=row[7], position=row[8]) for row in cur2]
             return jsonify(messages=messages)
         else:
             er = 'No new'
@@ -436,7 +436,7 @@ def board_components(boardID):
             if session.get('logged_in') and auth['accessType'] == 'edit':
                 try:
                     cursor = g.db.cursor()
-                    cursor.execute('insert into board_content (boardID, userID, content, type, position) values (?, ?, ?, ?, ?)', [bid, session['userid'], msg, ty, position])
+                    cursor.execute('insert into board_content (boardID, userID, content, type, position, last_modified_at, last_modified_by) values (?, ?, ?, ?, ?, ?, ?)', [bid, session['userid'], msg, ty, position, datetime.utcnow(), session['userid']])
                     g.db.commit()
                     componentID = cursor.lastrowid
                     cursor.close()
@@ -449,7 +449,7 @@ def board_components(boardID):
                     abort(401)
                 try:
                     cursor = g.db.cursor()
-                    cursor.execute('insert into board_content (boardID, userEmail, content, type, position) values (?, ?, ?, ?, ?)', [bid, em, msg, ty, position])
+                    cursor.execute('insert into board_content (boardID, userEmail, content, type, position, last_modified_at, last_modified_by) values (?, ?, ?, ?, ?, ?, ?)', [bid, em, msg, ty, position, datetime.utcnow(), em])
                     g.db.commit()
                     componentID = cursor.lastrowid
                     cursor.close()

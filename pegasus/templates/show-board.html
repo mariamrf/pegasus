@@ -216,7 +216,15 @@
 <script src="{{ url_for('static', filename='js/board-elements.js') }}"></script>
 <script> // keeping it here because jinja-rendered urls below, for now.
 	$(function() {
+		// 'GLOBAL' VARIABLES
+		var cE = '{{canEdit}}';
+		var CAN_EDIT;
+		if(cE == 'True')
+			CAN_EDIT = true;
+		else
+			CAN_EDIT = false;
 
+		var ALL_TEXT_ELEMENTS = [];
 		// EXPIRATION ICON
 		$('#time-until-done').on('mouseover', function(){
 			$(this).prop('title', 'loading..');
@@ -337,15 +345,41 @@
 								var final = list.join('<br>');
 								$('.chat-message-details').last().html(final);
 								prevSender=username;
-								if(data.messages[i].created_at > lastModified)
-									lastModified = data.messages[i].created_at;
+							}
+							else if(data.messages[i].type=='text'){
+								var text_pos = data.messages[i].position;
+								var text_id = data.messages[i].id;
+								var text_content = data.messages[i].content;
+								var list = text_content.split('\n');
+								var final_text_content = list.join('<br>');
+								var exists = false;
+								// check if it already exists
+								for(var j=0; j<ALL_TEXT_ELEMENTS.length; j++){
+									var txt = ALL_TEXT_ELEMENTS[j];
+									if(txt.elementID == text_id && txt.content == final_text_content && txt.position == text_pos){
+										exists = true;
+										break;
+									}
+								}
+								// why do they snap back to start when moved?
+								// if not:
+								if(!exists){
+									$('#text-' + text_id).remove();
+									// remove from ALL_TEXT_ELEMENTS if it exists, too
+									var txt_n = ALL_TEXT_ELEMENTS.length + 'S';
+									var txt_temp = new TextElement(txt_n, '#board-grid', B, INVITE, CAN_EDIT);
+									txt_temp.init(text_content, text_id, text_pos);
+									ALL_TEXT_ELEMENTS.push(txt_temp);
+								}
 							}
 							else{
 							// OTHER BOARD CONTENT THAN CHAT
-							if(data.messages[i].last_modified_at > lastModified)
-								lastModified = data.messages[i].last_modified_at;
+							// 1 - if it's in the list with the same content and position, don't render it.
+							// 2 - if not, remove if applicable and re-render it.
 							}
 							$("#chat-board").animate({ scrollTop: $('#chat-board').prop("scrollHeight")}, 500);
+							if(data.messages[i].last_modified_at > lastModified)
+									lastModified = data.messages[i].last_modified_at;
 
 							}
 						}
@@ -555,10 +589,9 @@
 			{% endif %}
 		{% if canEdit %}
 		// ADD TEXT COMPONENT
-		var ALL_TEXT_ELEMENTS = [];
 		$('#tool-add-text').click(function(){
 			var n = ALL_TEXT_ELEMENTS.length + 'S'; // softID, position in array + S so no conflicts with the actual component ID
-			var temp = new TextElement(n, '#board-grid', B, INVITE);
+			var temp = new TextElement(n, '#board-grid', B, INVITE, CAN_EDIT);
 			temp.create();
 			ALL_TEXT_ELEMENTS.push(temp);
 		});
