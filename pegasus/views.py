@@ -428,6 +428,7 @@ def board_components(boardID):
         new_token = generate_csrf_token()
         msg = request.form['message']
         ty = request.form['content-type']
+        position = request.form['position']
         error = 'None'
         curDone = g.db.execute('select done_at from boards where id=?', [bid]).fetchone()
         done_at = datetime.strptime(curDone[0], '%Y-%m-%d %H:%M:%S.%f')
@@ -435,7 +436,7 @@ def board_components(boardID):
             if session.get('logged_in') and auth['accessType'] == 'edit':
                 try:
                     cursor = g.db.cursor()
-                    cursor.execute('insert into board_content (boardID, userID, content, type) values (?, ?, ?, ?)', [bid, session['userid'], msg, ty])
+                    cursor.execute('insert into board_content (boardID, userID, content, type, position) values (?, ?, ?, ?, ?)', [bid, session['userid'], msg, ty, position])
                     g.db.commit()
                     componentID = cursor.lastrowid
                     cursor.close()
@@ -448,7 +449,7 @@ def board_components(boardID):
                     abort(401)
                 try:
                     cursor = g.db.cursor()
-                    cursor.execute('insert into board_content (boardID, userEmail, content, type) values (?, ?, ?, ?)', [bid, em, msg, ty])
+                    cursor.execute('insert into board_content (boardID, userEmail, content, type, position) values (?, ?, ?, ?, ?)', [bid, em, msg, ty, position])
                     g.db.commit()
                     componentID = cursor.lastrowid
                     cursor.close()
@@ -518,13 +519,17 @@ def edit_component(componentID, boardID):
         else:
             mod = session['userid']
     # if we get this far, user has editing access
-    msg = request.form['message']
     ty = request.form['content-type']
     curDone = g.db.execute('select done_at from boards where id=?', [bid]).fetchone()
     done_at = datetime.strptime(curDone[0], '%Y-%m-%d %H:%M:%S.%f')
     if done_at > datetime.utcnow():
         try:
-            g.db.execute('update board_content set content=?, last_modified_at=?, last_modified_by=? where id=? and boardID=? and type=?', [msg, datetime.utcnow(), mod, cid, bid, ty])
+            if request.form['hasMessages']=='true':
+                msg = request.form['message']
+                g.db.execute('update board_content set content=?, last_modified_at=?, last_modified_by=? where id=? and boardID=? and type=?', [msg, datetime.utcnow(), mod, cid, bid, ty])
+            else: # refreshing position only
+                pos = request.form['position']
+                g.db.execute('update board_content set position=?, last_modified_at=?, last_modified_by=? where id=? and boardID=? and type=?', [pos, datetime.utcnow(), mod, cid, bid, ty])
             g.db.commit()
         except sqlite3.Error as e:
             error = e.args[0]

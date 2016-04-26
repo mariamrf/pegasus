@@ -33,6 +33,7 @@ create table board_content (
 	created_at datetime default current_timestamp,
 	last_modified_at datetime,
 	last_modified_by text, /* UserID for logged in, or Email for Invited */
+	position text,
 	FOREIGN KEY (boardID) REFERENCES boards(id) ON DELETE CASCADE,
 	FOREIGN KEY (userID) REFERENCES users(id)
 );

@@ -29,10 +29,14 @@ var TextElement = function(softID, canvasID, boardID, invite){
 	this.save = function(message, type, id){
 		var self = this;
 		var URL;
-		if(type=='create')
+		if(type=='create'){
 			URL = Flask.url_for('board_components', {boardID:self.boardID});
-		else 
+			position = "{'top': 0, 'left': 0}";
+		}
+		else{
 			URL = Flask.url_for('edit_component', {boardID:self.boardID, componentID:id});
+			position = ''; // won't actually be handled in any way server-side since this 'hasMessages'
+		}
 
 		$.ajax({
 			method: 'POST',
@@ -42,7 +46,9 @@ var TextElement = function(softID, canvasID, boardID, invite){
 				'_csrf_token': $("input[name='_csrf_token']").val(),
 				'invite': self.invite,
 				'content-type': 'text',
-				'message': message
+				'hasMessages': 'true',
+				'message': message,
+				'position': position
 			},
 			success: function(data){
 				if(data.error == 'None'){
@@ -58,7 +64,10 @@ var TextElement = function(softID, canvasID, boardID, invite){
 					if(type=='create'){
 						$('#text-' + self.elementID).draggable({
 							containment: self.canvasID,
-							cursor: 'move'
+							cursor: 'move',
+							stop: function(event, ui){
+								self.refresh(ui.position);
+							}
 						});
 
 						$('#text-' + self.elementID).dblclick(function(){
@@ -93,5 +102,29 @@ var TextElement = function(softID, canvasID, boardID, invite){
 			}
 		});
 
+	}
+	this.refresh = function(position){
+		var self = this;
+		var posToString = JSON.stringify(position);
+		$.ajax({
+			method: 'POST',
+			url: Flask.url_for('edit_component', {boardID:self.boardID, componentID:self.elementID}),
+			async: false,
+			data:{
+				'_csrf_token': $("input[name='_csrf_token']").val(),
+				'invite': self.invite,
+				'content-type': 'text',
+				'hasMessages': 'false',
+				'position': posToString
+			},
+			success: function(data){
+				if(data.error == 'None'){
+					console.log("Successfully updated position!");
+				}
+				else
+					console.log(data.error);
+				$("input[name='_csrf_token']").val(data.token);
+			}
+		});
 	}
 };
