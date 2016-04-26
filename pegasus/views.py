@@ -433,7 +433,7 @@ def board_components(boardID):
         curDone = g.db.execute('select done_at from boards where id=?', [bid]).fetchone()
         done_at = datetime.strptime(curDone[0], '%Y-%m-%d %H:%M:%S.%f')
         if(done_at > datetime.utcnow()):
-            if session.get('logged_in') and auth['accessType'] == 'edit':
+            if session.get('logged_in') and ((auth['accessType'] == 'edit' and ty != 'chat') or (auth['access'] and ty == 'chat')):
                 try:
                     cursor = g.db.cursor()
                     cursor.execute('insert into board_content (boardID, userID, content, type, position, last_modified_at, last_modified_by) values (?, ?, ?, ?, ?, ?, ?)', [bid, session['userid'], msg, ty, position, datetime.utcnow(), session['userid']])
@@ -445,7 +445,7 @@ def board_components(boardID):
             else: # has an invite, if they made it this far
                 inviteTy = cur[0]
                 em = cur[1]
-                if inviteTy != 'edit':
+                if inviteTy != 'edit' and ty != 'chat':
                     abort(401)
                 try:
                     cursor = g.db.cursor()

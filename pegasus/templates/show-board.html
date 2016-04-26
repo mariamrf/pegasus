@@ -44,7 +44,7 @@
 			<h1 id='chat-board-spinner' class='text-center' title="Loading chat.."><i class="fa fa-pulse fa-spinner"></i><h1>
 			</div>
 	<!--Chat box-->
-	{% if canEdit and not isDone %}
+	{% if not isDone %}
 			<form id='chat-form'>
 				<div class='form-group'>
 				<input type='hidden' name='_csrf_token' value='{{ csrf_token() }}'>
@@ -392,7 +392,6 @@
 		else // if it's done, only get messages once
 			getMessages();
 
-		{% if canEdit %}
 		// SEND MESSAGE
 			$('#chat-form').bind('submit', function(event){
 				event.preventDefault();
@@ -432,7 +431,7 @@
 					return false;
 				}
 			});
-		{% endif %}
+
 		{% if isOwner %}
 		// SEE INVITED PEOPLE
 		$('#invitedUsersModal').on('shown.bs.modal', function(){

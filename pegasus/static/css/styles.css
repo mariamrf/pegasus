@@ -279,6 +279,7 @@ label{
 	left:0;
 	top:0;
 	display: inline-block;
+	position:relative;
 }
 .draggable-text:hover{
 	cursor: move;
