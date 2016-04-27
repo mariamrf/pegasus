@@ -19,6 +19,8 @@ create table boards (
 	creatorID integer not null,
 	created_at datetime default current_timestamp,
 	done_at datetime, 
+	locked_until datetime default current_timestamp, /* for some reason datetime in this particular field randomly fucks up */
+	locked_by text,  /* UserID for logged in, or Email for Invited */
 	FOREIGN KEY(creatorID) REFERENCES users(id)
 );
 
@@ -49,3 +51,4 @@ create table invites (
 	UNIQUE (userEmail, boardID)
 	/*FOREIGN KEY (userEmail) REFERENCES users(email)*/ /* Removed constraint to invite people who don't have accounts yet, if a user were to change their email in their account cascading would have to be done manually */
 );
+

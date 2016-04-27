@@ -299,6 +299,7 @@
 						}, 
 					success: function(data){
 						$('#chat-board-spinner').remove();
+						console.log(data.locked);
 						if(!data.error){ // has new messages
 							for(var i=0; i<data.messages.length; i++){ 
 							var username;

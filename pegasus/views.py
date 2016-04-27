@@ -36,10 +36,18 @@ def is_owner(boardID, userID):
     else:
         return False
 
-def is_authorized(boardID):
+def lock_board(boardID, userID=None, userEmail=None): 
+    user = userID if userID is not None else userEmail
+    lock = datetime.utcnow() + timedelta(seconds=5) 
+    lock_time = lock.strftime('%Y-%m-%d %H:%M:%S')
+    g.db.execute('update boards set locked_until=?, locked_by=? where id=?', [lock_time, user, boardID])
+    g.db.commit()
+
+def is_authorized(boardID, wantToEdit=False):
     access = False
     isOwner = False
     accessType = None
+    canEditNow = False
     if session.get('logged_in'):
         # not counting in the invitation link logic here
         uid = session['userid']
@@ -54,7 +62,19 @@ def is_authorized(boardID):
             if cur2 is not None:
                 access = True
                 accessType = cur2[0]
-    return {'access':access, 'isOwner':isOwner, 'accessType':accessType}
+        if accessType =='edit' and wantToEdit:
+            # boardID must exist at this point, checked by calling functions
+            lock = g.db.execute('select locked_until, locked_by from boards where id=?', [boardID]).fetchone()
+            if lock is not None:
+                lockedUntil = datetime.strptime(lock[0], '%Y-%m-%d %H:%M:%S')
+                lockedBy = lock[1]
+                if (datetime.utcnow() > lockedUntil) or (datetime.utcnow() < lockedUntil and int(lockedBy) == uid):
+                    try:
+                        lock_board(boardID, userID=str(uid))
+                        canEditNow = True
+                    except sqlite3.Error as e:
+                        pass
+    return {'access':access, 'isOwner':isOwner, 'accessType':accessType, 'canEditNow':canEditNow}
 
 
 
@@ -144,13 +164,16 @@ def create_board():
         try:
             uid = session.get('userid')
             title = request.form['title']
-            done_at = datetime.utcnow() + timedelta(days=1)
+            done = datetime.utcnow() + timedelta(days=1)
+            done_at = done.strftime('%Y-%m-%d %H:%M:%S')
+            locked_by = str(uid)
             cur = g.db.cursor()
-            cur.execute('insert into boards (creatorID, title, done_at) values (?, ?, ?)', [uid, title, done_at])
+            cur.execute('insert into boards (creatorID, title, done_at, locked_by) values (?, ?, ?, ?)', [uid, title, done_at, uid])
             g.db.commit()
             boardID = cur.lastrowid
             cur.close()
-            return redirect(url_for('show_board', boardID=boardID))
+            #return redirect(url_for('show_board', boardID=boardID))
+            return redirect(url_for('index'))
         except sqlite3.Error as e:
             error = 'An error occured: ' + e.args[0]
     return render_template('new-board.html', error=error)
@@ -165,7 +188,7 @@ def show_board(boardID):
         invite = request.args.get('invite') # ?invite=INVITE_ID
         auth = is_authorized(boardID)
         can_participate = False
-        done_at = datetime.strptime(curB[2], '%Y-%m-%d %H:%M:%S.%f')
+        done_at = datetime.strptime(curB[2], '%Y-%m-%d %H:%M:%S')
         isDone = False
         if(done_at < datetime.utcnow()):
             isDone = True
@@ -254,6 +277,9 @@ def edit_board():
     if not session.get('logged_in'):
         abort(401)
     else: # is logged in
+        curBoard = g.db.execute('select title from boards where id=?', [int(request.form['boardID'])]).fetchone()
+        if curBoard is None:
+            abort(404)
         error = 'None'
         new_token = generate_csrf_token()
         try:
@@ -332,7 +358,7 @@ def mark_done():
         new_token = generate_csrf_token()
         done_at = datetime.utcnow()
         bid = int(request.form['boardID'])
-        old_done_at = datetime.strptime(g.db.execute('select done_at from boards where id=?', [bid]).fetchone()[0], '%Y-%m-%d %H:%M:%S.%f')
+        old_done_at = datetime.strptime(g.db.execute('select done_at from boards where id=?', [bid]).fetchone()[0], '%Y-%m-%d %H:%M:%S')
         if old_done_at < done_at:
             abort(400)
         try:
@@ -395,9 +421,9 @@ def edit_invite():
 def board_components(boardID):
     # first of all, authenticate
     bid = int(boardID)
-    cur0 = g.db.execute('select title from boards where id=?', [bid]).fetchone()
+    curDone = g.db.execute('select done_at, locked_until, locked_by from boards where id=?', [bid]).fetchone()
     ## If board doesn't exist
-    if cur0 is None:
+    if curDone is None:
         abort(404)
     ## If there's an invite code
     if request.method == 'GET':
@@ -416,13 +442,22 @@ def board_components(boardID):
     if request.method == 'GET':
         # no need for extra auth here as everyone with access to the board can see everything
         lastClientGot = request.args.get('lastModified', 0, str)
+        lock_until = datetime.strptime(curDone[1], '%Y-%m-%d %H:%M:%S')
+        lock_by = curDone[2]
+        LOCKED = False
+        if datetime.utcnow() < lock_until:
+            if session.get('logged_in') and lock_by != str(session['userid']):
+                LOCKED = True
+            elif inv != '-1':
+                if lock_by != cur[1]:
+                    LOCKED = True
         cur2 = g.db.execute('select id, content, userID, userEmail, created_at, last_modified_at, last_modified_by, type, position from board_content where boardID=? and last_modified_at > ? order by created_at', [bid, lastClientGot]).fetchall()
-        if len(cur2) > 0: # this only works because nobody can delete a message, obvs not good for the long run
+        if len(cur2) > 0: # has new messages since lastModified
             messages = [dict(id=row[0], content=row[1], userID=row[2], userEmail=row[3], created_at=row[4], last_modified_at=row[5], last_modified_by=row[6], type=row[7], position=row[8]) for row in cur2]
-            return jsonify(messages=messages)
+            return jsonify(messages=messages, locked=LOCKED)
         else:
-            er = 'No new'
-            return jsonify(error=er)
+            er = 'Nothing new'
+            return jsonify(error=er, locked=LOCKED)
     ### POST A SINGLE COMPONENT/MESSAGE
     elif request.method == 'POST':
         new_token = generate_csrf_token()
@@ -430,10 +465,12 @@ def board_components(boardID):
         ty = request.form['content-type']
         position = request.form['position']
         error = 'None'
-        curDone = g.db.execute('select done_at from boards where id=?', [bid]).fetchone()
-        done_at = datetime.strptime(curDone[0], '%Y-%m-%d %H:%M:%S.%f')
+        componentID = None
+        done_at = datetime.strptime(curDone[0], '%Y-%m-%d %H:%M:%S')
+        wantEdit = False if ty == 'chat' else True
+        auth2 = is_authorized(bid, wantToEdit=wantEdit)
         if(done_at > datetime.utcnow()):
-            if session.get('logged_in') and ((auth['accessType'] == 'edit' and ty != 'chat') or (auth['access'] and ty == 'chat')):
+            if session.get('logged_in') and ((ty != 'chat' and auth2['canEditNow']) or (auth2['access'] and ty == 'chat')):
                 try:
                     cursor = g.db.cursor()
                     cursor.execute('insert into board_content (boardID, userID, content, type, position, last_modified_at, last_modified_by) values (?, ?, ?, ?, ?, ?, ?)', [bid, session['userid'], msg, ty, position, datetime.utcnow(), session['userid']])
@@ -442,19 +479,33 @@ def board_components(boardID):
                     cursor.close()
                 except sqlite3.Error as e:
                     error = e.args[0]
-            else: # has an invite, if they made it this far
+            elif inv != '-1': # has an invite, if they made it this far
                 inviteTy = cur[0]
                 em = cur[1]
+                lockedUntil = datetime.strptime(curDone[1], '%Y-%m-%d %H:%M:%S')
+                lockedBy = curDone[2]
+                allowEdit = False
                 if inviteTy != 'edit' and ty != 'chat':
                     abort(401)
-                try:
-                    cursor = g.db.cursor()
-                    cursor.execute('insert into board_content (boardID, userEmail, content, type, position, last_modified_at, last_modified_by) values (?, ?, ?, ?, ?, ?, ?)', [bid, em, msg, ty, position, datetime.utcnow(), em])
-                    g.db.commit()
-                    componentID = cursor.lastrowid
-                    cursor.close()
-                except sqlite3.Error as e:
-                    error = e.args[0]
+                elif datetime.utcnow() > lockedUntil or (datetime.utcnow() < lockedUntil and lockedBy == em):
+                    try:
+                        lock_board(bid, userEmail=em)
+                        allowEdit = True
+                    except sqlite3.Error as e:
+                        error=e.args[0]
+                if allowEdit:
+                    try:
+                        cursor = g.db.cursor()
+                        cursor.execute('insert into board_content (boardID, userEmail, content, type, position, last_modified_at, last_modified_by) values (?, ?, ?, ?, ?, ?, ?)', [bid, em, msg, ty, position, datetime.utcnow(), em])
+                        g.db.commit()
+                        componentID = cursor.lastrowid
+                        cursor.close()
+                    except sqlite3.Error as e:
+                        error = e.args[0]
+                else:
+                    error = 'This board is locked for edit by another user.'
+            else:
+                error = 'You either do not have permission to edit or this board has been locked for edit by another user.'
         else:
             error = 'This board was marked as done by its creator, you cannot make any more changes.'
         return jsonify(error=error, token=new_token, componentID=componentID)
@@ -484,6 +535,9 @@ def invited_users(boardID):
     invited = 'None'
     new_token = generate_csrf_token() # for the POST forms generated on the fly
     bid = int(boardID)
+    curBoard = g.db.execute('select title from boards where id=?', [bid]).fetchone()
+    if curBoard is None:
+        abort(404)
     if not session.get('logged_in') or not is_owner(bid, session['userid']):
         abort(401)
     else:
@@ -504,6 +558,9 @@ def edit_component(componentID, boardID):
     bid = int(boardID)
     cid = int(componentID)
     inv = request.form['invite']
+    curBoard = g.db.execute('select locked_until, locked_by from boards where id=?', [bid]).fetchone()
+    if curBoard is None:
+        abort(404)
     if inv != '-1' and not session.get('logged_in'): # don't care if there's an invite string as long as they're logged in
         cur = g.db.execute('select type, userEmail from invites where id=? and boardID=?', [inv, bid]).fetchone()
         if cur is None:
@@ -512,29 +569,41 @@ def edit_component(componentID, boardID):
             abort(401)
         else:
             mod = cur[1]
+            lockedUntil = datetime.strptime(curBoard[0], '%Y-%m-%d %H:%M:%S')
+            lockedBy = curBoard[1]
+            if(datetime.utcnow > lockedUntil) or (datetime.utcnow < lockedUntil and lockedBy == mod):
+                try:
+                    lock_board(bid,userEmail=mod)
+                    allowEdit = True
+                except sqlite3.Error as e:
+                    error = e.args[0]
     else:
-        auth = is_authorized(bid)
-        if not auth['access'] or not auth['accessType'] == 'edit':
+        auth = is_authorized(bid, wantToEdit=True)
+        if not auth['access'] or not auth['accessType'] == 'edit' or not auth['canEditNow']:
             abort(401)
         else:
+            allowEdit = True
             mod = session['userid']
     # if we get this far, user has editing access
-    ty = request.form['content-type']
-    curDone = g.db.execute('select done_at from boards where id=?', [bid]).fetchone()
-    done_at = datetime.strptime(curDone[0], '%Y-%m-%d %H:%M:%S.%f')
-    if done_at > datetime.utcnow():
-        try:
-            if request.form['hasMessages']=='true':
-                msg = request.form['message']
-                g.db.execute('update board_content set content=?, last_modified_at=?, last_modified_by=? where id=? and boardID=? and type=?', [msg, datetime.utcnow(), mod, cid, bid, ty])
-            else: # refreshing position only
-                pos = request.form['position']
-                g.db.execute('update board_content set position=?, last_modified_at=?, last_modified_by=? where id=? and boardID=? and type=?', [pos, datetime.utcnow(), mod, cid, bid, ty])
-            g.db.commit()
-        except sqlite3.Error as e:
-            error = e.args[0]
-    else:
-        error = 'This board was marked done by its creator. You cannot make any more changes.'
+    if allowEdit:
+        ty = request.form['content-type']
+        curDone = g.db.execute('select done_at from boards where id=?', [bid]).fetchone()
+        done_at = datetime.strptime(curDone[0], '%Y-%m-%d %H:%M:%S')
+        if done_at > datetime.utcnow():
+            try:
+                if request.form['hasMessages']=='true':
+                    msg = request.form['message']
+                    g.db.execute('update board_content set content=?, last_modified_at=?, last_modified_by=? where id=? and boardID=? and type=?', [msg, datetime.utcnow(), mod, cid, bid, ty])
+                else: # refreshing position only
+                    pos = request.form['position']
+                    g.db.execute('update board_content set position=?, last_modified_at=?, last_modified_by=? where id=? and boardID=? and type=?', [pos, datetime.utcnow(), mod, cid, bid, ty])
+                g.db.commit()
+            except sqlite3.Error as e:
+                error = e.args[0]
+        else:
+            error = 'This board was marked done by its creator. You cannot make any more changes.'
+    else: 
+        error = 'This board is locked for edit by another user.'
     return jsonify(error=error, token=new_token)
 
 

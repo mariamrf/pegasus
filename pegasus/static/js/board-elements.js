@@ -27,8 +27,7 @@ var TextElement = function(softID, canvasID, boardID, invite, canEdit){ // canEd
 					self.refresh(ui.position);
 				}
 			});
-
-			$('#text-' + self.elementID).dblclick(function(){
+			function doubleClickEvent(){
 				var v = $(this).text(); // this won't render line breaks so fix it
 				$(this).html('<form id="text-edit-form-'+self.elementID
 							+'"><textarea id="text-edit-'+self.elementID
@@ -47,7 +46,10 @@ var TextElement = function(softID, canvasID, boardID, invite, canEdit){ // canEd
 					var val = $('#text-edit-'+self.elementID).val();
 					self.save(val, 'edit', self.elementID);
 				});
-			});
+
+			}
+			$('#text-' + self.elementID).dblclick(doubleClickEvent);
+			// double tap event would go here
 		}
 
 	}
