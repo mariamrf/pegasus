@@ -172,8 +172,7 @@ def create_board():
             g.db.commit()
             boardID = cur.lastrowid
             cur.close()
-            #return redirect(url_for('show_board', boardID=boardID))
-            return redirect(url_for('index'))
+            return redirect(url_for('show_board', boardID=boardID))
         except sqlite3.Error as e:
             error = 'An error occured: ' + e.args[0]
     return render_template('new-board.html', error=error)
