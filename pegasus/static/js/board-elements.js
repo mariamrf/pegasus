@@ -82,7 +82,7 @@ var TextElement = function(softID, canvasID, boardID, invite, canEdit){ // canEd
 		if(self.editable){
 			var URL;
 			if(type=='create'){
-				URL = Flask.url_for('board_components', {boardID:self.boardID});
+				URL = Flask.url_for('post_components', {boardID:self.boardID});
 				position = self.position;
 			}
 			else{

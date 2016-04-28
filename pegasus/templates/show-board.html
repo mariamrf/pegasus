@@ -292,7 +292,7 @@
 			function getMessages(){
 				$.ajax({
 					type: 'GET',
-					url: Flask.url_for('board_components', {boardID:B}),
+					url: Flask.url_for('get_components', {boardID:B}),
 					data: {
 							'invite': INVITE,
 							'lastModified': lastModified
@@ -403,7 +403,7 @@
 				$.ajax({
 					async: false,
 					type: 'POST',
-					url: Flask.url_for('board_components', {boardID:B}),
+					url: Flask.url_for('post_components', {boardID:B}),
 					data: {
 					'_csrf_token': $("input[name='_csrf_token']").val(),
 					'invite': INVITE,
