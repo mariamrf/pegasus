@@ -519,7 +519,7 @@ def post_components(boardID):
         else:
             error = 'Your priviliges do not allow you to post to this board.'
     else:
-        error = 'This board was marked done by its creator. You cannot make any changes.'
+        error = 'This board has expired. You cannot make any changes.'
     return jsonify(error=error, token=new_token, componentID=componentID)
 
 
@@ -615,7 +615,7 @@ def edit_component(componentID, boardID):
             except sqlite3.Error as e:
                 error = e.args[0]
         else:
-            error = 'This board was marked done by its creator. You cannot make any more changes.'
+            error = 'This board has expired. You cannot make any more changes.'
     else: 
         error = 'This board is locked for edit by another user.'
     return jsonify(error=error, token=new_token)

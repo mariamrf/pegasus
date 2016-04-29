@@ -146,8 +146,11 @@ var TextElement = function(softID, canvasID, boardID, invite, canEdit){ // canEd
 					if(data.error == 'None'){
 						console.log("Successfully updated position!");
 					}
-					else
-						console.log(data.error);
+					else{
+						$(self.canvasID).prepend('<div id="board-error" class="alert alert-warning">'
+												+'<a href="#" class="close" data-dismiss="alert" aria-label="close">&times;</a>'
+												+'<strong>Error: </strong>'+data.error+'</div>');
+					}
 					$("input[name='_csrf_token']").val(data.token);
 				}
 			});
