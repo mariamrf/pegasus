@@ -268,9 +268,27 @@ label{
 #time-until-done{
 	font-size: 0.9em;
 }
-
+.disable{
+	pointer-events: none;
+}
 #board-grid{
 	min-height: 77vh;
+}
+
+#board-notice{
+	min-height: 1em;
+}
+
+#board-notice p{
+	text-transform: uppercase;
+	font-weight: bold;
+	color: #f39c12;
+	border-bottom:1px dashed #f39c12;
+	padding-bottom:0.5em;
+}
+
+#whos-editing .whos-editing-name{
+	font-size: 1.1em;
 }
 .draggable-text{
 	font-size:1.3em;

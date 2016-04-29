@@ -34,6 +34,7 @@
 			<span class='global-btn tool-btn' id="tool-add-text" title='Add Text'><i class='fa fa-font'></i></span>
 		</div>
 		{% endif %}
+		<div id="board-notice"></div>
 		<div id="board-grid"></div>
 	</div>
 	<!--END CANVAS SECTION-->
@@ -299,7 +300,27 @@
 						}, 
 					success: function(data){
 						$('#chat-board-spinner').remove();
-						console.log(data.locked);
+						$('#whos-editing').remove();
+						// if locked
+						if(data.locked){
+							$('#board-grid, #board-tools').addClass('disable');
+							var whoisediting = data.lockedBy;
+							var final_whoisediting = whoisediting;
+							$.ajax({
+									type: 'GET',
+									url: Flask.url_for('get_user', {userID:whoisediting}),
+									async: false, // so we can actually set the username through it
+									dataType: 'json',
+									success: function(d){
+										if(d.error == 'None')
+											final_whoisediting = d.username;
+									}
+								});
+							$('#board-notice').append('<p class="text-center" id="whos-editing"><span class="whos-editing-name">'+final_whoisediting+'</span> is editing...</p>');
+						}
+						else{
+							$('#board-grid, #board-tools').removeClass('disable');
+						}
 						if(!data.error){ // has new messages
 							for(var i=0; i<data.messages.length; i++){ 
 							var username;

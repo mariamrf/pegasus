@@ -449,13 +449,13 @@ def get_components(boardID):
             curList = g.db.execute('select id, content, userID, userEmail, created_at, last_modified_at, last_modified_by, type, position from board_content where boardID=? and last_modified_at > ? order by created_at', [bid, lastClientGot]).fetchall()
             if len(curList) > 0:
                 messages = [dict(id=row[0], content=row[1], userID=row[2], userEmail=row[3], created_at=row[4], last_modified_at=row[5], last_modified_by=row[6], type=row[7], position=row[8]) for row in curList]
-                return jsonify(messages=messages, locked=LOCKED)
+                return jsonify(messages=messages, locked=LOCKED, lockedBy=lock_by)
             else:
                 error = 'Nothing new.'
-                return jsonify(error=error, locked=LOCKED)
+                return jsonify(error=error, locked=LOCKED, lockedBy=lock_by)
         except sqlite3.Error as e:
             error = e.args[0]
-            return jsonify(error=error, locked=LOCKED)
+            return jsonify(error=error, locked=LOCKED, lockedBy=lock_by)
 
 @app.route('/api/board/<boardID>/components/post', methods=['POST'])
 def post_components(boardID):
@@ -583,7 +583,7 @@ def edit_component(componentID, boardID):
             mod = cur[1]
             lockedUntil = datetime.strptime(curBoard[0], '%Y-%m-%d %H:%M:%S')
             lockedBy = curBoard[1]
-            if(datetime.utcnow > lockedUntil) or (datetime.utcnow < lockedUntil and lockedBy == mod):
+            if(datetime.utcnow() > lockedUntil) or (datetime.utcnow() < lockedUntil and lockedBy == mod):
                 try:
                     lock_board(bid,userEmail=mod)
                     allowEdit = True
