@@ -21,7 +21,13 @@
 		  <strong>Welcome, {{email}}!</strong> You've been invited! Sign up/Login to continue with your username.
 		</div>
 	{% endif %}
-		<h2><span id='board-title'>{{title}}</span><small class='hidden-xs hidden-sm'> <i id="time-until-done" {% if isDone %} class="fa fa-exclamation-circle" {% else %} class="fa fa-hourglass-half" {% endif %}></i> <i id="whoami-rank" {% if isOwner %} class="fa fa-check-circle" title="You're the owner" {% elif canEdit and not isOwner %} class="fa fa-pencil" title="You can edit" {% else %} class="fa fa-eye" title="You can only view" {% endif %}></i></small></h2>
+		<h2><span id='board-title'>{{title}}</span>
+			<small> 
+				<i id="time-until-done" {% if isDone %} class="fa fa-exclamation-circle" {% else %} class="fa fa-hourglass-half" {% endif %}></i> 
+				<i id="whoami-rank" {% if isOwner %} class="fa fa-check-circle" title="You're the owner" {% elif canEdit and not isOwner %} class="fa fa-pencil" title="You can edit" {% else %} class="fa fa-eye" title="You can only view" {% endif %}></i>
+				<button class='global-btn register-btn download-btn' title='Save As Image..' data-toggle='modal' data-target='#saveImageModal'><i class='fa fa-download'></i></button>
+			</small>
+		</h2>
 	</div>
 </div>
 	<div class='row'>
@@ -209,12 +215,29 @@
 		</div>
 		<!--Remove self from board-->
 {% endif %}
+<!--Save Board As Image-->
+		<div class="modal fade" id="saveImageModal" tabindex="-1" role="dialog" aria-labelledby="saveImageLabel">
+		  <div class="modal-dialog" role="document">
+		    <div class="modal-content">
+		      <div class="modal-header">
+		        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+		        <h4 class="modal-title" id="saveImageLabel">Save Board As Image</h4>
+		      </div>
+		      <div class="modal-body text-center" id="save-image-body">
+				  <h4 id="save-image-instructions">Right click the box below, then Save image as..</h4>
+				  <span id="save-image-spinner"><i class="fa fa-pulse fa-spinner"></i></span>
+		      </div>
+		    </div>
+		  </div>
+		</div>
+		<!--End Save Board As Image-->
 {% endblock %}
 {% block scripts %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/randomcolor/0.4.4/randomColor.min.js"></script>
 <script src="{{ url_for('static', filename='js/jquery-ui.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/jquery.ui.touch-punch.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/board-elements.js') }}"></script>
+<script src="{{ url_for('static', filename='js/html2canvas.js') }}"></script>
 <script> // keeping it here because jinja-rendered urls below, for now.
 	$(function() {
 		// 'GLOBAL' VARIABLES
@@ -252,11 +275,20 @@
 			$('#do-not-remove-thyself').focus();
 		});
 		{% endif %}
-		// CREATED_AT and DONE_AT in proper local format
-		var board_created = moment.utc('{{ created_at }}').local().format("dddd, MMMM Do YYYY, h:mm:ss a");
-		var board_done = moment.utc('{{ done_at }}').local().format("dddd, MMMM Do YYYY, h:mm:ss a");
-		$('#board-created-at').text(board_created);
-		$('#board-done-at').text(board_done);
+		// SAVE IMAGE MODAL
+		$('#saveImageModal').on('shown.bs.modal', function(){
+			$('#save-image-spinner').remove();
+			html2canvas(document.getElementById("board-grid"), {
+				onrendered: function(canvas){
+					document.getElementById("save-image-body").appendChild(canvas);
+				}
+			});
+		});
+
+		$('#saveImageModal').on('hidden.bs.modal', function(){
+			$('canvas', this).remove();
+			$('#save-image-body').append('<span id="save-image-spinner"><i class="fa fa-pulse fa-spinner"></i></span>');
+		});
 
 		// GET INVITE CODE IF ANY
 			function getQueryParam(sParam){

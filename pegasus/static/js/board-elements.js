@@ -29,8 +29,8 @@ var TextElement = function(softID, canvasID, boardID, invite, canEdit){ // canEd
 			});
 			function hoverEnterEvent(){
 				$('#text-delete-form-'+self.elementID).remove();
-				$(this).append('<form class="delete-form" id="text-delete-form-'+self.elementID
-							+'"><button type="submit" class="global-btn register-btn delete-btn" title="Delete Text" id="delete-'+self.elementID
+				$(this).prepend('<form class="delete-form" id="text-delete-form-'+self.elementID
+							+'"><button type="submit" class="global-btn delete-btn" title="Delete Text" id="delete-'+self.elementID
 							+'"><i class="fa fa-trash"></i></button></form>');
 				$('#text-delete-form-'+self.elementID).bind('submit', function(event){
 					event.preventDefault();

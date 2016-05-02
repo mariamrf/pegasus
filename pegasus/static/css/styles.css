@@ -50,6 +50,30 @@
 .delete-form{
 	font-size:0.7em;
 }
+.download-btn{
+	background-color:#2980b9 !important; /* GLOBAL BLUE */
+	font-size:0.8em !important;
+	padding-right:0.3em !important;
+	padding-left:0.3em !important;
+}
+
+.download-btn:hover{
+	color: #2980b9 !important;
+	background-color: white !important;
+}
+#saveImageModal canvas{
+	width:60%;
+	padding:0.5em;
+	border:0.2em dashed rgb(98,77,130);
+}
+#saveImageModal canvas:hover{
+	cursor: copy;
+}
+#save-image-instructions{
+	color: rgb(98,77,130);
+	font-weight: bold;
+	text-transform: uppercase;
+}
 .global-btn{
 	border-radius:1em;
 	padding-right:1em;
