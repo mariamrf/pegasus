@@ -28,7 +28,7 @@
 	<!--CANVAS SECTION-->
 	<div class='col-xs-12 col-md-9'>
 		<h4 id='canvas-section-identifier' class='section-identifier global-btn'>Canvas</h4>
-		{% if canEdit %}
+		{% if canEdit and not isDone %}
 		<div id="board-tools">
 			<input type="hidden" name="_csrf_token" id="add-component-token" value="{{ csrf_token() }}" />
 			<span class='global-btn tool-btn' id="tool-add-text" title='Add Text'><i class='fa fa-font'></i></span>
@@ -218,13 +218,13 @@
 <script> // keeping it here because jinja-rendered urls below, for now.
 	$(function() {
 		// 'GLOBAL' VARIABLES
+		var isDone = '{{ isDone }}';
 		var cE = '{{canEdit}}';
 		var CAN_EDIT;
 		if(cE == 'True')
 			CAN_EDIT = true;
 		else
 			CAN_EDIT = false;
-
 		var ALL_TEXT_ELEMENTS = [];
 		// EXPIRATION ICON
 		$('#time-until-done').on('mouseover', function(){
@@ -405,14 +405,18 @@
 
 							}
 						}
+						if(isDone=='True'){ // no need to undo this anywhere because isDone is final
+							$('#board-grid').addClass('disable');
+						}
 					} //end success
 				});
 			}
-		var isDone = '{{ isDone }}';
+
 		if(isDone != 'True')
 			window.setInterval(getMessages, 1000);
-		else // if it's done, only get messages once
-			getMessages();
+		else
+			getMessages(); // if it's done, only get messages once, and disable the grid
+			
 
 		// SEND MESSAGE
 			$('#chat-form').bind('submit', function(event){
