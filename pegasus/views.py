@@ -355,10 +355,11 @@ def mark_done():
     else:
         error = 'None'
         new_token = generate_csrf_token()
-        done_at = datetime.utcnow()
+        done = datetime.utcnow()
+        done_at = done.strftime('%Y-%m-%d %H:%M:%S')
         bid = int(request.form['boardID'])
         old_done_at = datetime.strptime(g.db.execute('select done_at from boards where id=?', [bid]).fetchone()[0], '%Y-%m-%d %H:%M:%S')
-        if old_done_at < done_at:
+        if old_done_at < done:
             abort(400)
         try:
             g.db.execute('update boards set done_at=? where id=? and creatorID=?', [done_at, bid, session['userid']])
