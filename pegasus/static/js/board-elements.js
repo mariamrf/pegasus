@@ -20,18 +20,55 @@ var TextElement = function(softID, canvasID, boardID, invite, canEdit){ // canEd
 		$('#text-'+self.elementID).html(final);
 		$('#text-'+self.elementID).css(jsonParse);
 		if(self.editable){
-				$('#text-' + self.elementID).draggable({
+			$('#text-' + self.elementID).draggable({
 				containment: self.canvasID,
 				cursor: 'move',
 				stop: function(event, ui){
 					self.refresh(ui.position);
 				}
 			});
+			function hoverEnterEvent(){
+				$('#text-delete-form-'+self.elementID).remove();
+				$(this).append('<form class="delete-form" id="text-delete-form-'+self.elementID
+							+'"><button type="submit" class="global-btn register-btn delete-btn" title="Delete Text" id="delete-'+self.elementID
+							+'"><i class="fa fa-trash"></i></button></form>');
+				$('#text-delete-form-'+self.elementID).bind('submit', function(event){
+					event.preventDefault();
+					var id = self.elementID;
+					var csrf = $("input[name='_csrf_token']").val();
+					var invite = self.invite;
+					var url = Flask.url_for('delete_component', {boardID:self.boardID, componentID:id});
+					$.ajax({
+						async: false,
+						method: 'POST',
+						url: url,
+						data: {
+							'_csrf_token': csrf,
+							'invite': invite
+						},
+						success: function(data){
+							if(data.error == 'None'){
+								$('#text-' + self.elementID).remove();
+							}
+							else{
+								$(self.canvasID).prepend('<div id="board-error" class="alert alert-warning">'
+												+'<a href="#" class="close" data-dismiss="alert" aria-label="close">&times;</a>'
+												+'<strong>Error: </strong>'+data.error+'</div>');
+							}
+							$("input[name='_csrf_token']").val(data.token);
+						}
+					});
+				});
+			}
+			function hoverLeaveEvent(){
+				$('#text-delete-form-'+self.elementID).remove();
+			}
 			function doubleClickEvent(){
 				var v = $(this).text(); // this won't render line breaks so fix it
 				$(this).html('<form id="text-edit-form-'+self.elementID
 							+'"><textarea id="text-edit-'+self.elementID
 							+'" name="message" class="text-edit-input">'+v+'</textarea></form>');
+				$('#text-edit-'+self.elementID).focus();
 				$('#text-edit-'+self.elementID).bind('blur', function(){
 					$('#text-edit-form-'+self.elementID).submit();
 				});
@@ -50,6 +87,9 @@ var TextElement = function(softID, canvasID, boardID, invite, canEdit){ // canEd
 			}
 			$('#text-' + self.elementID).dblclick(doubleClickEvent);
 			// double tap event would go here
+
+			$('#text-' + self.elementID).hover(hoverEnterEvent, hoverLeaveEvent);
+			// single tap event would go here
 		}
 
 	}

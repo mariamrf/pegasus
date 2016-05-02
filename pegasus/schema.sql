@@ -36,6 +36,7 @@ create table board_content (
 	last_modified_at datetime,
 	last_modified_by text, /* UserID for logged in, or Email for Invited */
 	position text,
+	deleted text default 'N',
 	FOREIGN KEY (boardID) REFERENCES boards(id) ON DELETE CASCADE,
 	FOREIGN KEY (userID) REFERENCES users(id)
 );

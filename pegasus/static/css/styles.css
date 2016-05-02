@@ -47,6 +47,9 @@
 	background: -webkit-linear-gradient(to right, #1A1A1A , #414345); /* Chrome 10-25, Safari 5.1-6 */
 	background: linear-gradient(to right, #1A1A1A , #414345); /* W3C, IE 10+/ Edge, Firefox 16+, Chrome 26+, Opera 12+, Safari 7+ */
 }
+.delete-form{
+	font-size:0.7em;
+}
 .global-btn{
 	border-radius:1em;
 	padding-right:1em;
@@ -299,7 +302,7 @@ label{
 	display: inline-block;
 	position:relative;
 }
-.draggable-text:hover{
+.draggable-text:hover, .draggable-text:focus{
 	cursor: move;
 	border:1px dashed rgb(98,77,130);
 }

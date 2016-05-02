@@ -375,23 +375,30 @@
 								var list = text_content.split('\n');
 								var final_text_content = list.join('<br>');
 								var exists = false;
-								// check if it already exists
-								for(var j=0; j<ALL_TEXT_ELEMENTS.length; j++){
-									var txt = ALL_TEXT_ELEMENTS[j];
-									if(txt.elementID == text_id && txt.content == final_text_content && txt.position == text_pos){
-										exists = true;
-										break;
-									}
+								var isDeleted = data.messages[i].deleted == 'Y' ? true : false;
+								// if modification is deletion and it exists, remove
+
+								if(isDeleted){
+									$('#text-' + text_id).remove(); // won't do anything if it doesn't exist
 								}
-								// why do they snap back to start when moved?
-								// if not:
-								if(!exists){
-									$('#text-' + text_id).remove();
-									// remove from ALL_TEXT_ELEMENTS if it exists, too
-									var txt_n = ALL_TEXT_ELEMENTS.length + 'S';
-									var txt_temp = new TextElement(txt_n, '#board-grid', B, INVITE, CAN_EDIT);
-									txt_temp.init(text_content, text_id, text_pos);
-									ALL_TEXT_ELEMENTS.push(txt_temp);
+								else{
+									for(var j=0; j<ALL_TEXT_ELEMENTS.length; j++){
+										var txt = ALL_TEXT_ELEMENTS[j];
+										if(txt.elementID == text_id && txt.content == final_text_content && txt.position == text_pos){
+											exists = true;
+											break;
+										}
+									}
+									// why do they snap back to start when moved?
+									// if not:
+									if(!exists){
+										$('#text-' + text_id).remove();
+										// remove from ALL_TEXT_ELEMENTS if it exists, too
+										var txt_n = ALL_TEXT_ELEMENTS.length + 'S';
+										var txt_temp = new TextElement(txt_n, '#board-grid', B, INVITE, CAN_EDIT);
+										txt_temp.init(text_content, text_id, text_pos);
+										ALL_TEXT_ELEMENTS.push(txt_temp);
+									}
 								}
 							}
 							else{
