@@ -1,3 +1,32 @@
+"""PEGASUS Views
+
+General:
+    This file contains all the business logic related to the app 'views'/URLs and how the server interacts
+    with the database.
+    Because it's a simple enough app, for now, queries are directly written instead of being processed by something like SQLAlchemy.
+    All AJAX POST functions return a new CSRF-protection token as the token is per request, not per session.
+
+Division:
+    1 - Function definitions.
+    2 - Basic/rendered views.
+    3 - API for AJAX requests.
+
+Database:
+    In order for the following to make sense, here's the database schema/logic:
+        > TABLE NAME    : COLUMN_1(DESCRIPTION OF COLUMN optional), COLUMN_2(DESCRIPTION OF COLUMN optional),...
+        -------------    ----------------------------------------------------------------------------------------
+        > USERS         : ID, Name (optional), Username, Email, Join_Date (defaults to date of creation of row).
+
+        > BOARDS        : ID, Title, CreatorID, Created_at (defaults to date of creation), Done_at (Created_at + 24hrs at creation),
+                          Locked_until (Locks are placed when someone edits the board and last 5 seconds to prevent editing the same thing at the same time by someone else.
+                          This column defaults to date of creation and is changed later), Locked_by (Who, in terms of userID or email, was the last to lock the board).
+
+        > BOARD_CONTENT : ID, BoardID, UserEmail (optional, in case an invited but not signed in user creates a component instance), UserID (optional, in case user is signed in),
+                          Created_at, Last_modified_at, Last_modified_by, position (optional, for components whose positions matter, like text),
+                          Deleted (boolean, 'N' or 'Y').
+
+        > INVITES       : ID (UUID instead of auto-incrementing integer), BoardID, UserEmail, Invite_date, Type (view or edit).
+"""
 from pegasus import app
 import sqlite3
 import uuid
@@ -12,16 +41,20 @@ from itertools import islice
 
 # all the definitions
 def get_random_string(length=32):
-     return ''.join(random.choice(string.ascii_letters + string.digits) for i in range(length))
+    """Generate a random string of length 32, used in `generate_csrf_token()`"""
+    return ''.join(random.choice(string.ascii_letters + string.digits) for i in range(length))
 
 def generate_csrf_token():
+    """Create a CSRF-protection token if one doesn't already exist in the user's session and put it there."""
     if '_csrf_token' not in session:
         session['_csrf_token'] = get_random_string()
     return session['_csrf_token']
 
 app.jinja_env.globals['csrf_token'] = generate_csrf_token
+"""So whenever `{{ csrf_token() }}` is used in a Jinja2 template, it returns the result of the function `generate_csrf_token()` """
 
 def login_user(username):
+    """Login user using their username. Put username and userid (find in database) in their respective sessions."""
     session['logged_in'] = True
     session['username'] = username
     cur = g.db.execute('select id from users where username=?', [username]).fetchone()
@@ -30,6 +63,7 @@ def login_user(username):
 
 
 def is_owner(boardID, userID):
+    """Check if a user is the owner of a certain board."""
     cur = g.db.execute('select creatorID from boards where id=?', [boardID]).fetchone()[0]
     if cur == userID:
         return True
@@ -37,6 +71,10 @@ def is_owner(boardID, userID):
         return False
 
 def lock_board(boardID, userID=None, userEmail=None): 
+    """Called after making sure the board isn't currently locked and the user has editing access.
+    Any `sqlite3.Error`s handled in calling function.
+    Lock the board for 5 seconds.
+    """
     user = userID if userID is not None else userEmail
     lock = datetime.utcnow() + timedelta(seconds=5) 
     lock_time = lock.strftime('%Y-%m-%d %H:%M:%S')
@@ -44,6 +82,11 @@ def lock_board(boardID, userID=None, userEmail=None):
     g.db.commit()
 
 def is_authorized(boardID, wantToEdit=False):
+    """Check if a certain signed in user (who by default doesn't want to edit the board) is authorized to access it, 
+    and if yes, what's the extent of their access? View/Edit/Owner.
+    If edit/owner, can they edit now? (if the board is not locked, this function will lock it for them).
+    Returns a hash that includes access (boolean), isOwner (boolean), canEditNow (boolean), and accessType (str)
+    """
     access = False
     isOwner = False
     accessType = None
@@ -84,6 +127,7 @@ def is_authorized(boardID, wantToEdit=False):
 # routing (views)
 @app.route('/')
 def index():
+    """Helpers for the index page."""
     if session.get('logged_in'):
         email = g.db.execute('select email from users where id=?', [session['userid']]).fetchone()[0].lower()
         cur2 = g.db.execute('select id, title from boards where id in (select boardID from invites where userEmail=?)', [email]).fetchall()
@@ -96,6 +140,7 @@ def index():
 
 @app.route('/register', methods=['GET', 'POST'])
 def register_user():
+    """If not logged in and POST, register new user and go to index. If an error occurs, render the same register template again but with an error."""
     if session.get('logged_in'):
         abort(401)
     error = None
@@ -118,6 +163,7 @@ def register_user():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    """Attempt login. If credentials check out, go to index. If not, render login template with error."""
     if session.get('logged_in'):
         abort(401)
     error = None
@@ -139,6 +185,7 @@ def login():
 
 @app.route('/profile')
 def show_profile():
+    """Render profile for logged in user."""
     if not session.get('logged_in'):
         abort(401)
     uid = session.get('userid')
@@ -149,6 +196,7 @@ def show_profile():
 
 @app.route('/logout')
 def logout():
+    """Logout currently logged in user and redirect to home."""
     session.pop('logged_in', None)
     session.pop('username', None)
     session.pop('userid', None)
@@ -157,6 +205,7 @@ def logout():
 
 @app.route('/new-board', methods=['GET', 'POST'])
 def create_board():
+    """Create a new board."""
     if not session.get('logged_in'):
         abort(401)
     error = None
@@ -179,6 +228,14 @@ def create_board():
 
 @app.route('/board/<boardID>')
 def show_board(boardID):
+    """Show board with a specified `boardID`.
+
+    Hierarchy of errors:
+        1 - 404 : board not found.
+        2 - 401 : not authorized. Person trying to view the board is not logged in with access to this board or does not have a (valid) invite code.
+
+    Renders the page (initially) according to the access type of the user (owner, edit, view).
+    """
     # first, check if there's even a board
     curB = g.db.execute('select title, created_at, done_at from boards where id=?', [boardID]).fetchone()
     if curB is None:
@@ -206,25 +263,10 @@ def show_board(boardID):
         else:
             abort(401)
 
-@app.route('/_deleteBoard', methods=['POST'])
-def delete_board():
-    if not session.get('logged_in'):
-        abort(401)
-    else:
-        error = 'None'
-        new_token = generate_csrf_token()
-        bid = int(request.form['boardID'])
-        try:
-            g.db.execute('delete from boards where id=? and creatorID=?', [bid, session['userid']])
-            g.db.commit()
-        except sqlite3.Error as e:
-            error = e.args[0]
-        if(error!='None'):
-            flash(error)
-        return redirect(url_for('show_profile'))
 
 @app.route('/_removeSelf', methods=['POST'])
 def remove_self():
+    """Removes logged in user, who is not the owner of a board, from a certain board they'd been invited to."""
     if not session.get('logged_in'):
         abort(401)
     else:
@@ -251,8 +293,9 @@ def remove_self():
 
 # AJAX functions
 ## GET
-@app.route('/_validateUsername')
-def valUsername():
+@app.route('/_validateUsername', methods=['GET'])
+def validate_username():
+    """If username is available, return true. Else, if taken, return false. Used in registration."""
     un = request.args.get('username', 0, type=str)
     cur = g.db.execute('select id from users where username=?', [un.lower()]).fetchone()
     if cur is None:
@@ -260,8 +303,9 @@ def valUsername():
     else:
         return jsonify(available='false')
 
-@app.route('/_validateEmail')
-def valEmail():
+@app.route('/_validateEmail', methods=['GET'])
+def validate_email():
+    """If email is available, return true. Else, if taken, return false. Used in registration."""
     em = request.args.get('email', 0, type=str)
     cur = g.db.execute('select id from users where email=?', [em.lower()]).fetchone()
     if cur is None:
@@ -271,25 +315,9 @@ def valEmail():
 
 
 ## POST
-@app.route('/_editBoard', methods=['POST'])
-def edit_board():
-    if not session.get('logged_in'):
-        abort(401)
-    else: # is logged in
-        curBoard = g.db.execute('select title from boards where id=?', [int(request.form['boardID'])]).fetchone()
-        if curBoard is None:
-            abort(404)
-        error = 'None'
-        new_token = generate_csrf_token()
-        try:
-            g.db.execute('update boards set title=? where id=? and creatorID=?', [request.form['title'], int(request.form['boardID']), session['userid']])
-            g.db.commit()
-        except sqlite3.Error as e:
-            error = e.args[0]
-        return jsonify(error=error, token=new_token) # and new CSRF token to be used again
-
 @app.route('/_editProfile', methods=['POST'])
 def edit_profile():
+    """Edit user info, such as username, email, and name for the logged in user."""
     if not session.get('logged_in'):
         abort(401)
     else:
@@ -331,6 +359,7 @@ def edit_profile():
 
 @app.route('/_changePassword', methods=['POST'])
 def change_password(): 
+    """Edit password for the logged in user. Front-end handles repeating the password twice before submitting."""
     if not session.get('logged_in'):
         abort(401)
     else:
@@ -348,53 +377,11 @@ def change_password():
                 error = e.args[0]
         return jsonify(error=error, token=new_token)
 
-@app.route('/_markDone', methods=['POST'])
-def mark_done():
-    if not session.get('logged_in'):
-        abort(401)
-    else:
-        error = 'None'
-        new_token = generate_csrf_token()
-        done = datetime.utcnow()
-        done_at = done.strftime('%Y-%m-%d %H:%M:%S')
-        bid = int(request.form['boardID'])
-        old_done_at = datetime.strptime(g.db.execute('select done_at from boards where id=?', [bid]).fetchone()[0], '%Y-%m-%d %H:%M:%S')
-        if old_done_at < done:
-            abort(400)
-        try:
-            g.db.execute('update boards set done_at=? where id=? and creatorID=?', [done_at, bid, session['userid']])
-            g.db.commit()
-        except sqlite3.Error as e:
-            error = e.args[0]
-        return jsonify(error=error, token=new_token)
 
-
-@app.route('/_inviteUser', methods=['POST'])
-def invite_user():
-    if not session.get('logged_in'):
-        abort(401)
-    em = request.form['email'].lower()
-    ty = request.form['type'] # view or edit
-    b_id = int(request.form['boardID'])
-    user = session['userid']
-    inviteID = uuid.uuid4().hex
-    error = 'None'
-    successful='false'
-    if is_owner(b_id, user):
-        try:
-            g.db.execute('insert into invites (id, userEmail, boardID, type) values (?, ?, ?, ?)', [inviteID, em, b_id, ty])
-            g.db.commit()
-            successful = 'true'
-        except sqlite3.IntegrityError as e:
-            error = 'This email has already been invited to this board.'
-        except sqlite3.Error as e: # for debugging
-            error = e.args[0]
-        finally:
-            new_token = generate_csrf_token()
-    return jsonify(successful=successful, error=error, token=new_token)
 
 @app.route('/_editInvite', methods=['POST'])
 def edit_invite():
+    """Edit the type of invitation/access to invited users. Available only to board owner."""
     bid = int(request.form['boardID'])
     em = request.form['email']
     old_type = request.form['inviteType']
@@ -417,8 +404,94 @@ def edit_invite():
         return jsonify(error=error, token=new_token)
 
 ## API (GET/POST)
+@app.route('/api/invite/user/<email>/board/<boardID>', methods=['POST'])
+def invite_user(email, boardID):
+    """Invite a user to a board via their email. Available only to the board owner."""
+    if not session.get('logged_in'):
+        abort(401)
+    em = email.lower()
+    ty = request.form['type'] # view or edit
+    bid = int(boardID)
+    user = session['userid']
+    inviteID = uuid.uuid4().hex
+    error = 'None'
+    successful='false'
+    if is_owner(b_id, user):
+        try:
+            g.db.execute('insert into invites (id, userEmail, boardID, type) values (?, ?, ?, ?)', [inviteID, em, bid, ty])
+            g.db.commit()
+            successful = 'true'
+        except sqlite3.IntegrityError as e:
+            error = 'This email has already been invited to this board.'
+        except sqlite3.Error as e: # for debugging
+            error = e.args[0]
+        finally:
+            new_token = generate_csrf_token()
+    return jsonify(successful=successful, error=error, token=new_token)
+
+@app.route('/api/edit/board/<boardID>/title', methods=['POST'])
+def edit_board(boardID):
+    """Edit board title if the user is the owner."""
+    if not session.get('logged_in'):
+        abort(401)
+    else: # is logged in
+        curBoard = g.db.execute('select title from boards where id=?', [int(boardID)]).fetchone()
+        if curBoard is None:
+            abort(404)
+        error = 'None'
+        new_token = generate_csrf_token()
+        try:
+            g.db.execute('update boards set title=? where id=? and creatorID=?', [request.form['title'], int(boardID), session['userid']])
+            g.db.commit()
+        except sqlite3.Error as e:
+            error = e.args[0]
+        return jsonify(error=error, token=new_token) # and new CSRF token to be used again
+
+@app.route('/api/expire/board/<boardID>', methods=['POST'])
+def mark_done(boardID):
+    """Mark a board as done before the 24 hours are up. Only available to the owner of the board."""
+    if not session.get('logged_in'):
+        abort(401)
+    else:
+        error = 'None'
+        new_token = generate_csrf_token()
+        done = datetime.utcnow()
+        done_at = done.strftime('%Y-%m-%d %H:%M:%S')
+        bid = int(boardID)
+        old_done_at = datetime.strptime(g.db.execute('select done_at from boards where id=?', [bid]).fetchone()[0], '%Y-%m-%d %H:%M:%S')
+        if old_done_at < done:
+            abort(400)
+        try:
+            g.db.execute('update boards set done_at=? where id=? and creatorID=?', [done_at, bid, session['userid']])
+            g.db.commit()
+        except sqlite3.Error as e:
+            error = e.args[0]
+        return jsonify(error=error, token=new_token)
+
+@app.route('/api/delete/board/<boardID>', methods=['POST'])
+def delete_board(boardID):
+    """Delete board. Only allows it in case the board in question"""
+    if not session.get('logged_in'):
+        abort(401)
+    else:
+        error = 'None'
+        new_token = generate_csrf_token()
+        bid = int(boardID)
+        try:
+            g.db.execute('delete from boards where id=? and creatorID=?', [bid, session['userid']])
+            g.db.commit()
+        except sqlite3.Error as e:
+            error = e.args[0]
+        if(error!='None'):
+            flash(error)
+        return redirect(url_for('show_profile'))
+
 @app.route('/api/board/<boardID>/components/get', methods=['GET'])
 def get_components(boardID):
+    """Get all components of a board. This includes:
+        - Chat, text, and other components along with all their relevant data (date, who, etc).
+        - State of the board: locked/unlocked.
+    """
     bid = int(boardID)
     curBoard = g.db.execute('select locked_until, locked_by from boards where id=?', [bid]).fetchone()
     if curBoard is None:
@@ -460,6 +533,7 @@ def get_components(boardID):
 
 @app.route('/api/board/<boardID>/components/post', methods=['POST'])
 def post_components(boardID):
+    """Post a component to the board. Works for all types."""
     bid = int(boardID)
     new_token = generate_csrf_token()
     msg = request.form['message']
@@ -529,6 +603,7 @@ def post_components(boardID):
 
 @app.route('/api/user/<userID>', methods=['GET'])
 def get_user(userID):
+    """Get a user's username/name based on their ID. Available to everyone."""
     # no authentication needed, public info. A better app would only provide this info to people who have something in common with the user
     ## like they share a board. But for now, it's just public.
     error = 'None'
@@ -547,6 +622,7 @@ def get_user(userID):
 
 @app.route('/api/invited/<boardID>', methods=['GET'])
 def invited_users(boardID):
+    """Get list of invited emails and the type of their invitations. Available to board owner only."""
     error = 'None'
     invited = 'None'
     new_token = generate_csrf_token() # for the POST forms generated on the fly
@@ -569,6 +645,7 @@ def invited_users(boardID):
 
 @app.route('/api/edit/board/<boardID>/component/<componentID>', methods=['POST'])
 def edit_component(componentID, boardID):
+    """Edit a component's content (the text, etc). Available to anyone with edit/owner access to the board."""
     error = 'None'
     new_token = generate_csrf_token()
     bid = int(boardID)
@@ -631,6 +708,7 @@ def edit_component(componentID, boardID):
 
 @app.route('/api/delete/board/<boardID>/component/<componentID>', methods=['POST'])
 def delete_component(boardID, componentID):
+    """Delete a component. Separated from editing for readability and possible future modification of the edit function. Also available to everyone with edit/owner access."""
     error = 'None'
     new_token = generate_csrf_token()
     bid = int(boardID)

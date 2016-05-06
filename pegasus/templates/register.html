@@ -34,7 +34,7 @@
     <script>
       $(function() {
         $('#username-form').bind('blur', function() {
-          $.getJSON({{ url_for('valUsername') |tojson|safe }}, {
+          $.getJSON( Flask.url_for('validate_username'), {
             username: $('input[name="username"]').val()
           }, function(data) {
             if(data.available == 'false'){
@@ -63,7 +63,7 @@
 
       $(function() {
         $('#email-form').bind('blur', function() {
-          $.getJSON({{ url_for('valEmail') |tojson|safe }}, {
+          $.getJSON(Flask.url_for('validate_email'), {
             email: $('input[name="email"]').val()
           }, function(data) {
             if(data.available == 'false'){
