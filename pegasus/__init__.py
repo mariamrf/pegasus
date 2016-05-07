@@ -1,39 +1,6 @@
 """
-Pegasus
--------
-A whiteboard collaboration tool built with Flask
-
-Files:
-    The backend is divided into 3 main files, other than the database schema:
-        - __init__.py: glues everything together; the configuration, the db connection, 
-        the initialization of the app, and the rest of the necessary (sub-)modules.
-        - views.py: most of the business logic, aside from error handlers.
-        - errorhandlers.py: ...the error handlers.
-    The frontend, on the other hand, is divided into 3 main folders, each with several files:
-        - templates: all the html/Jinja2 templates.
-        - static:
-            = css: all the stylesheets
-            = js: all the external scripts
-
-Purpose & Functionality:
-    General:
-        The aim of this project is to create an easy, lightweight, realtime whiteboard to share/demonstrate ideas 
-        in the form of components (for example: text, images, code, etc) that can be pieced together and edited
-        by several people in a live session, and exported at any time.
-        At this point in time, the only component available is text, along with the sidebar chat (which is available to everyone, edit privileges or not).
-        The plan is to add components, and features (like exporting the board as text instead of image), gradually, until the project reaches its initial 
-        purpose (stated above).
-
-    Use case:
-        A user who wishes to create a board registers an account, and proceeds to create it. Once created, they can invite others
-        by email either to view the board, or to co-edit it. Invited persons can either directly access the board through their invite
-        link, or register using the same email they've been invited with and access the board from their account. 
-        The board lasts 24 hours by default, but can be marked as done/expire sooner if the owner marks it as done.
-        Once expired, the final form of the board (and the sidebar chat) remain for everyone involved in the board to view or export. 
-        Only the owner can delete the board, edit it, and invite people.
-        Only signed in, non-owner invited users can remove themselves from the board entirely. 
-
-
+App
+----
 """
 import sqlite3
 from flask import Flask, g, request, session, abort

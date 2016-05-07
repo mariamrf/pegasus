@@ -43,33 +43,54 @@
 <span></span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">Views</span>
 <span class="sd">------</span>
+<span class="sd">This module contains all the business logic related to the app &#39;views&#39;/URLs and how the server interacts</span>
+<span class="sd">with the database.</span>
+<span class="sd">Because it&#39;s a simple enough app, for now, queries are directly written instead of being processed by something like SQLAlchemy.</span>
+<span class="sd">All AJAX POST functions return a new CSRF-protection token as the token is per request, not per session.</span>
 
-<span class="sd">General:</span>
-<span class="sd">    This file contains all the business logic related to the app &#39;views&#39;/URLs and how the server interacts</span>
-<span class="sd">    with the database.</span>
-<span class="sd">    Because it&#39;s a simple enough app, for now, queries are directly written instead of being processed by something like SQLAlchemy.</span>
-<span class="sd">    All AJAX POST functions return a new CSRF-protection token as the token is per request, not per session.</span>
+<span class="sd">Division</span>
+<span class="sd">~~~~~~~~</span>
+<span class="sd">1. Function definitions.</span>
+<span class="sd">2. Basic/rendered views.</span>
+<span class="sd">3. API for AJAX requests.</span>
 
-<span class="sd">Division:</span>
-<span class="sd">    1 - Function definitions.</span>
-<span class="sd">    2 - Basic/rendered views.</span>
-<span class="sd">    3 - API for AJAX requests.</span>
-
-<span class="sd">Database:</span>
-<span class="sd">    In order for the following to make sense, here&#39;s the database schema/logic:</span>
-<span class="sd">        &gt; TABLE NAME    : COLUMN_1(DESCRIPTION OF COLUMN optional), COLUMN_2(DESCRIPTION OF COLUMN optional),...</span>
-<span class="sd">        -------------    ----------------------------------------------------------------------------------------</span>
-<span class="sd">        &gt; USERS         : ID, Name (optional), Username, Email, Join_Date (defaults to date of creation of row).</span>
-
-<span class="sd">        &gt; BOARDS        : ID, Title, CreatorID, Created_at (defaults to date of creation), Done_at (Created_at + 24hrs at creation),</span>
-<span class="sd">                          Locked_until (Locks are placed when someone edits the board and last 5 seconds to prevent editing the same thing at the same time by someone else.</span>
-<span class="sd">                          This column defaults to date of creation and is changed later), Locked_by (Who, in terms of userID or email, was the last to lock the board).</span>
-
-<span class="sd">        &gt; BOARD_CONTENT : ID, BoardID, UserEmail (optional, in case an invited but not signed in user creates a component instance), UserID (optional, in case user is signed in),</span>
-<span class="sd">                          Created_at, Last_modified_at, Last_modified_by, position (optional, for components whose positions matter, like text),</span>
-<span class="sd">                          Deleted (boolean, &#39;N&#39; or &#39;Y&#39;).</span>
-
-<span class="sd">        &gt; INVITES       : ID (UUID instead of auto-incrementing integer), BoardID, UserEmail, Invite_date, Type (view or edit).</span>
+<span class="sd">Database</span>
+<span class="sd">~~~~~~~~</span>
+<span class="sd">In order for the following to make sense, here&#39;s the database schema/logic:</span>
+<span class="sd">        +---------------+----------------------------------------------------------------------------------------------------------------------------------------------------------+</span>
+<span class="sd">        |   TABLE       |   COLUMNS                                                                                                                                                |</span>
+<span class="sd">        +===============+==========================================================================================================================================================+    </span>
+<span class="sd">        |   USERS       |   - ID                                                                                                                                                   |                     </span>
+<span class="sd">        |               |   - Name (optional)                                                                                                                                      |</span>
+<span class="sd">        |               |   - Username                                                                                                                                             |</span>
+<span class="sd">        |               |   - UserEmail                                                                                                                                            |</span>
+<span class="sd">        |               |   - Join_Date (defaults to date of creation of row)                                                                                                      |</span>
+<span class="sd">        +---------------+----------------------------------------------------------------------------------------------------------------------------------------------------------+</span>
+<span class="sd">        |               |   - ID                                                                                                                                                   |</span>
+<span class="sd">        |               |   - Title                                                                                                                                                |</span>
+<span class="sd">        |               |   - CreatorID                                                                                                                                            |</span>
+<span class="sd">        |               |   - Created_at (defaults to date of creation)                                                                                                            |</span>
+<span class="sd">        |               |   - Done_at (Created_at + 24hrs at creation)                                                                                                             |</span>
+<span class="sd">        |   BOARDS      |   - Locked_until (Locks are placed when someone edits the board and last 5 seconds to prevent editing the same thing at the same time by someone else.   |</span>
+<span class="sd">        |               |    This column defaults to date of creation and is changed later)                                                                                        |</span>
+<span class="sd">        |               |   - Locked_by (Who, in terms of userID or email, was the last to lock the board)                                                                         |</span>
+<span class="sd">        +---------------+----------------------------------------------------------------------------------------------------------------------------------------------------------+</span>
+<span class="sd">        |               |   - ID                                                                                                                                                   |</span>
+<span class="sd">        |               |   - BoardID                                                                                                                                              |</span>
+<span class="sd">        |               |   - UserEmail (optional, in case an invited but not signed in user creates a component instance)                                                         |</span>
+<span class="sd">        |               |   - UserID (optional, in case user is signed in)                                                                                                         |</span>
+<span class="sd">        | BOARD_CONTENT |   - Created_at                                                                                                                                           |</span>
+<span class="sd">        |               |   - Last_modified_at                                                                                                                                     |</span>
+<span class="sd">        |               |   - Last_modified_by                                                                                                                                     |</span>
+<span class="sd">        |               |   - Position (optional, for components whose positions matter, like text)                                                                                |</span>
+<span class="sd">        |               |   - Deleted (boolean, &#39;N&#39; or &#39;Y&#39;)                                                                                                                        |</span>
+<span class="sd">        +---------------+----------------------------------------------------------------------------------------------------------------------------------------------------------+</span>
+<span class="sd">        |    INVITES    |   - ID (UUID instead of auto-incrementing integer)                                                                                                       |</span>
+<span class="sd">        |               |   - BoardID                                                                                                                                              |</span>
+<span class="sd">        |               |   - UserEmail                                                                                                                                            |</span>
+<span class="sd">        |               |   - Invite_date                                                                                                                                          |</span>
+<span class="sd">        |               |   - Type (view or edit)                                                                                                                                  |</span>
+<span class="sd">        +---------------+----------------------------------------------------------------------------------------------------------------------------------------------------------+</span>
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="kn">from</span> <span class="nn">pegasus</span> <span class="kn">import</span> <span class="n">app</span>
 <span class="kn">import</span> <span class="nn">sqlite3</span>
@@ -85,7 +106,7 @@
 
 <span class="c1"># all the definitions</span>
 <div class="viewcode-block" id="get_random_string"><a class="viewcode-back" href="../../index.html#pegasus.views.get_random_string">[docs]</a><span class="k">def</span> <span class="nf">get_random_string</span><span class="p">(</span><span class="n">length</span><span class="o">=</span><span class="mi">32</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Generate a random string of length 32, used in `generate_csrf_token()`&quot;&quot;&quot;</span>
+    <span class="sd">&quot;&quot;&quot;Generate a random string of length 32, used in ``generate_csrf_token()``&quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="s1">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">string</span><span class="o">.</span><span class="n">ascii_letters</span> <span class="o">+</span> <span class="n">string</span><span class="o">.</span><span class="n">digits</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">length</span><span class="p">))</span></div>
 
 <div class="viewcode-block" id="generate_csrf_token"><a class="viewcode-back" href="../../index.html#pegasus.views.generate_csrf_token">[docs]</a><span class="k">def</span> <span class="nf">generate_csrf_token</span><span class="p">():</span>
@@ -95,7 +116,7 @@
     <span class="k">return</span> <span class="n">session</span><span class="p">[</span><span class="s1">&#39;_csrf_token&#39;</span><span class="p">]</span></div>
 
 <span class="n">app</span><span class="o">.</span><span class="n">jinja_env</span><span class="o">.</span><span class="n">globals</span><span class="p">[</span><span class="s1">&#39;csrf_token&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">generate_csrf_token</span>
-<span class="sd">&quot;&quot;&quot;So whenever `{{ csrf_token() }}` is used in a Jinja2 template, it returns the result of the function `generate_csrf_token()` &quot;&quot;&quot;</span>
+<span class="sd">&quot;&quot;&quot;Whenever `{{ csrf_token() }}` is used in a Jinja2 template, it returns the result of the function `generate_csrf_token()` &quot;&quot;&quot;</span>
 
 <div class="viewcode-block" id="login_user"><a class="viewcode-back" href="../../index.html#pegasus.views.login_user">[docs]</a><span class="k">def</span> <span class="nf">login_user</span><span class="p">(</span><span class="n">username</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Login user using their username. Put username and userid (find in database) in their respective sessions.&quot;&quot;&quot;</span>
@@ -116,7 +137,7 @@
 
 <div class="viewcode-block" id="lock_board"><a class="viewcode-back" href="../../index.html#pegasus.views.lock_board">[docs]</a><span class="k">def</span> <span class="nf">lock_board</span><span class="p">(</span><span class="n">boardID</span><span class="p">,</span> <span class="n">userID</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">userEmail</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span> 
     <span class="sd">&quot;&quot;&quot;Called after making sure the board isn&#39;t currently locked and the user has editing access.</span>
-<span class="sd">    Any `sqlite3.Error`s handled in calling function.</span>
+<span class="sd">    Any sqlite3.Error s handled in calling function.</span>
 <span class="sd">    Lock the board for 5 seconds.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">user</span> <span class="o">=</span> <span class="n">userID</span> <span class="k">if</span> <span class="n">userID</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="k">else</span> <span class="n">userEmail</span>
@@ -275,8 +296,8 @@
     <span class="sd">&quot;&quot;&quot;Show board with a specified `boardID`.</span>
 
 <span class="sd">    Hierarchy of errors:</span>
-<span class="sd">        1 - 404 : board not found.</span>
-<span class="sd">        2 - 401 : not authorized. Person trying to view the board is not logged in with access to this board or does not have a (valid) invite code.</span>
+<span class="sd">        1. *404* : board not found.</span>
+<span class="sd">        2. *401* : not authorized. Person trying to view the board is not logged in with access to this board or does not have a (valid) invite code.</span>
 
 <span class="sd">    Renders the page (initially) according to the access type of the user (owner, edit, view).</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -810,7 +831,10 @@
         </div>
       </div>
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
-        <div class="sphinxsidebarwrapper"><div class="relations">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../index.html">
+              <img class="logo" src="../../_static/docs_logo.png" alt="Logo"/>
+            </a></p><div class="relations">
 <h3>Related Topics</h3>
 <ul>
   <li><a href="../../index.html">Documentation overview</a><ul>
@@ -844,6 +868,10 @@
       
     </div>
 
+    
+    <a href="https://github.com/blaringsilence/pegasus" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
     
 
     

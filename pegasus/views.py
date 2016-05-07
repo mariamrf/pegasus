@@ -1,33 +1,54 @@
 """
 Views
 ------
+This module contains all the business logic related to the app 'views'/URLs and how the server interacts
+with the database.
+Because it's a simple enough app, for now, queries are directly written instead of being processed by something like SQLAlchemy.
+All AJAX POST functions return a new CSRF-protection token as the token is per request, not per session.
 
-General:
-    This file contains all the business logic related to the app 'views'/URLs and how the server interacts
-    with the database.
-    Because it's a simple enough app, for now, queries are directly written instead of being processed by something like SQLAlchemy.
-    All AJAX POST functions return a new CSRF-protection token as the token is per request, not per session.
+Division
+~~~~~~~~
+1. Function definitions.
+2. Basic/rendered views.
+3. API for AJAX requests.
 
-Division:
-    1 - Function definitions.
-    2 - Basic/rendered views.
-    3 - API for AJAX requests.
-
-Database:
-    In order for the following to make sense, here's the database schema/logic:
-        > TABLE NAME    : COLUMN_1(DESCRIPTION OF COLUMN optional), COLUMN_2(DESCRIPTION OF COLUMN optional),...
-        -------------    ----------------------------------------------------------------------------------------
-        > USERS         : ID, Name (optional), Username, Email, Join_Date (defaults to date of creation of row).
-
-        > BOARDS        : ID, Title, CreatorID, Created_at (defaults to date of creation), Done_at (Created_at + 24hrs at creation),
-                          Locked_until (Locks are placed when someone edits the board and last 5 seconds to prevent editing the same thing at the same time by someone else.
-                          This column defaults to date of creation and is changed later), Locked_by (Who, in terms of userID or email, was the last to lock the board).
-
-        > BOARD_CONTENT : ID, BoardID, UserEmail (optional, in case an invited but not signed in user creates a component instance), UserID (optional, in case user is signed in),
-                          Created_at, Last_modified_at, Last_modified_by, position (optional, for components whose positions matter, like text),
-                          Deleted (boolean, 'N' or 'Y').
-
-        > INVITES       : ID (UUID instead of auto-incrementing integer), BoardID, UserEmail, Invite_date, Type (view or edit).
+Database
+~~~~~~~~
+In order for the following to make sense, here's the database schema/logic:
+        +---------------+----------------------------------------------------------------------------------------------------------------------------------------------------------+
+        |   TABLE       |   COLUMNS                                                                                                                                                |
+        +===============+==========================================================================================================================================================+    
+        |   USERS       |   - ID                                                                                                                                                   |                     
+        |               |   - Name (optional)                                                                                                                                      |
+        |               |   - Username                                                                                                                                             |
+        |               |   - UserEmail                                                                                                                                            |
+        |               |   - Join_Date (defaults to date of creation of row)                                                                                                      |
+        +---------------+----------------------------------------------------------------------------------------------------------------------------------------------------------+
+        |               |   - ID                                                                                                                                                   |
+        |               |   - Title                                                                                                                                                |
+        |               |   - CreatorID                                                                                                                                            |
+        |               |   - Created_at (defaults to date of creation)                                                                                                            |
+        |               |   - Done_at (Created_at + 24hrs at creation)                                                                                                             |
+        |   BOARDS      |   - Locked_until (Locks are placed when someone edits the board and last 5 seconds to prevent editing the same thing at the same time by someone else.   |
+        |               |    This column defaults to date of creation and is changed later)                                                                                        |
+        |               |   - Locked_by (Who, in terms of userID or email, was the last to lock the board)                                                                         |
+        +---------------+----------------------------------------------------------------------------------------------------------------------------------------------------------+
+        |               |   - ID                                                                                                                                                   |
+        |               |   - BoardID                                                                                                                                              |
+        |               |   - UserEmail (optional, in case an invited but not signed in user creates a component instance)                                                         |
+        |               |   - UserID (optional, in case user is signed in)                                                                                                         |
+        | BOARD_CONTENT |   - Created_at                                                                                                                                           |
+        |               |   - Last_modified_at                                                                                                                                     |
+        |               |   - Last_modified_by                                                                                                                                     |
+        |               |   - Position (optional, for components whose positions matter, like text)                                                                                |
+        |               |   - Deleted (boolean, 'N' or 'Y')                                                                                                                        |
+        +---------------+----------------------------------------------------------------------------------------------------------------------------------------------------------+
+        |    INVITES    |   - ID (UUID instead of auto-incrementing integer)                                                                                                       |
+        |               |   - BoardID                                                                                                                                              |
+        |               |   - UserEmail                                                                                                                                            |
+        |               |   - Invite_date                                                                                                                                          |
+        |               |   - Type (view or edit)                                                                                                                                  |
+        +---------------+----------------------------------------------------------------------------------------------------------------------------------------------------------+
 """
 from pegasus import app
 import sqlite3
@@ -43,7 +64,7 @@ from itertools import islice
 
 # all the definitions
 def get_random_string(length=32):
-    """Generate a random string of length 32, used in `generate_csrf_token()`"""
+    """Generate a random string of length 32, used in ``generate_csrf_token()``"""
     return ''.join(random.choice(string.ascii_letters + string.digits) for i in range(length))
 
 def generate_csrf_token():
@@ -53,7 +74,7 @@ def generate_csrf_token():
     return session['_csrf_token']
 
 app.jinja_env.globals['csrf_token'] = generate_csrf_token
-"""So whenever `{{ csrf_token() }}` is used in a Jinja2 template, it returns the result of the function `generate_csrf_token()` """
+"""Whenever `{{ csrf_token() }}` is used in a Jinja2 template, it returns the result of the function `generate_csrf_token()` """
 
 def login_user(username):
     """Login user using their username. Put username and userid (find in database) in their respective sessions."""
@@ -74,7 +95,7 @@ def is_owner(boardID, userID):
 
 def lock_board(boardID, userID=None, userEmail=None): 
     """Called after making sure the board isn't currently locked and the user has editing access.
-    Any `sqlite3.Error`s handled in calling function.
+    Any sqlite3.Error s handled in calling function.
     Lock the board for 5 seconds.
     """
     user = userID if userID is not None else userEmail
@@ -233,8 +254,8 @@ def show_board(boardID):
     """Show board with a specified `boardID`.
 
     Hierarchy of errors:
-        1 - 404 : board not found.
-        2 - 401 : not authorized. Person trying to view the board is not logged in with access to this board or does not have a (valid) invite code.
+        1. *404* : board not found.
+        2. *401* : not authorized. Person trying to view the board is not logged in with access to this board or does not have a (valid) invite code.
 
     Renders the page (initially) according to the access type of the user (owner, edit, view).
     """

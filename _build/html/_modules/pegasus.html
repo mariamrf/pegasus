@@ -41,41 +41,8 @@
             
   <h1>Source code for pegasus</h1><div class="highlight"><pre>
 <span></span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">Pegasus</span>
-<span class="sd">-------</span>
-<span class="sd">A whiteboard collaboration tool built with Flask</span>
-
-<span class="sd">Files:</span>
-<span class="sd">    The backend is divided into 3 main files, other than the database schema:</span>
-<span class="sd">        - __init__.py: glues everything together; the configuration, the db connection, </span>
-<span class="sd">        the initialization of the app, and the rest of the necessary (sub-)modules.</span>
-<span class="sd">        - views.py: most of the business logic, aside from error handlers.</span>
-<span class="sd">        - errorhandlers.py: ...the error handlers.</span>
-<span class="sd">    The frontend, on the other hand, is divided into 3 main folders, each with several files:</span>
-<span class="sd">        - templates: all the html/Jinja2 templates.</span>
-<span class="sd">        - static:</span>
-<span class="sd">            = css: all the stylesheets</span>
-<span class="sd">            = js: all the external scripts</span>
-
-<span class="sd">Purpose &amp; Functionality:</span>
-<span class="sd">    General:</span>
-<span class="sd">        The aim of this project is to create an easy, lightweight, realtime whiteboard to share/demonstrate ideas </span>
-<span class="sd">        in the form of components (for example: text, images, code, etc) that can be pieced together and edited</span>
-<span class="sd">        by several people in a live session, and exported at any time.</span>
-<span class="sd">        At this point in time, the only component available is text, along with the sidebar chat (which is available to everyone, edit privileges or not).</span>
-<span class="sd">        The plan is to add components, and features (like exporting the board as text instead of image), gradually, until the project reaches its initial </span>
-<span class="sd">        purpose (stated above).</span>
-
-<span class="sd">    Use case:</span>
-<span class="sd">        A user who wishes to create a board registers an account, and proceeds to create it. Once created, they can invite others</span>
-<span class="sd">        by email either to view the board, or to co-edit it. Invited persons can either directly access the board through their invite</span>
-<span class="sd">        link, or register using the same email they&#39;ve been invited with and access the board from their account. </span>
-<span class="sd">        The board lasts 24 hours by default, but can be marked as done/expire sooner if the owner marks it as done.</span>
-<span class="sd">        Once expired, the final form of the board (and the sidebar chat) remain for everyone involved in the board to view or export. </span>
-<span class="sd">        Only the owner can delete the board, edit it, and invite people.</span>
-<span class="sd">        Only signed in, non-owner invited users can remove themselves from the board entirely. </span>
-
-
+<span class="sd">App</span>
+<span class="sd">----</span>
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="kn">import</span> <span class="nn">sqlite3</span>
 <span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">Flask</span><span class="p">,</span> <span class="n">g</span><span class="p">,</span> <span class="n">request</span><span class="p">,</span> <span class="n">session</span><span class="p">,</span> <span class="n">abort</span>
@@ -149,7 +116,10 @@
         </div>
       </div>
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
-        <div class="sphinxsidebarwrapper"><div class="relations">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/docs_logo.png" alt="Logo"/>
+            </a></p><div class="relations">
 <h3>Related Topics</h3>
 <ul>
   <li><a href="../index.html">Documentation overview</a><ul>
@@ -181,6 +151,10 @@
       
     </div>
 
+    
+    <a href="https://github.com/blaringsilence/pegasus" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
     
 
     

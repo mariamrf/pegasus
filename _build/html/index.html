@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Docs &mdash; Pegasus 0.1.0 documentation</title>
+    <title>Pegasus &mdash; Pegasus 0.1.0 documentation</title>
     
     <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
@@ -38,61 +38,96 @@
         <div class="bodywrapper">
           <div class="body" role="main">
             
-  <div class="section" id="docs">
-<h1>Docs<a class="headerlink" href="#docs" title="Permalink to this headline">¶</a></h1>
+  <div class="section" id="pegasus">
+<h1>Pegasus<a class="headerlink" href="#pegasus" title="Permalink to this headline">¶</a></h1>
 <div class="toctree-wrapper compound">
 <ul class="simple">
 </ul>
 </div>
-<span class="target" id="module-pegasus"></span><div class="section" id="pegasus">
-<h2>Pegasus<a class="headerlink" href="#pegasus" title="Permalink to this headline">¶</a></h2>
-<p>A whiteboard collaboration tool built with Flask</p>
-<dl class="docutils">
-<dt>Files:</dt>
-<dd><dl class="first last docutils">
-<dt>The backend is divided into 3 main files, other than the database schema:</dt>
-<dd><ul class="first simple">
-<li>__init__.py: glues everything together; the configuration, the db connection,</li>
-</ul>
-<p class="last">the initialization of the app, and the rest of the necessary (sub-)modules.
-- views.py: most of the business logic, aside from error handlers.
-- errorhandlers.py: ...the error handlers.</p>
-</dd>
-<dt>The frontend, on the other hand, is divided into 3 main folders, each with several files:</dt>
-<dd><ul class="first last">
-<li><p class="first">templates: all the html/Jinja2 templates.</p>
+<div class="section" id="introduction">
+<span id="intro"></span><h2>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="about">
+<h3>About<a class="headerlink" href="#about" title="Permalink to this headline">¶</a></h3>
+<p>Pegasus is a whiteboard collaboration app whose aim is to enable/facilitate realtime sharing of ideas in the form of components (for example: text, images, code, etc) that can be pieced together and edited by several people in a live session, and exported at any time.</p>
+<p>At this point in time (<em>v0.1.0</em>), the only component available is text, along with the sidebar chat (which is available to everyone, edit privileges or not).</p>
+<p>The plan is to add components, and features (like exporting the board as text instead of image), gradually, until the project reaches its initial purpose (stated above).</p>
+<p>This project was part of the second edition of <a class="reference external" href="http://learnitgirl.com">Learn IT, Girl</a>, and would not have been possible without the continuous mentorship, support, and tolerance of &#8216;newbie&#8217; questions courtesy of <a class="reference external" href="https://github.com/daniel-j-h">&#64;daniel-j-h</a>.</p>
+</div>
+<div class="section" id="rules">
+<h3>Rules<a class="headerlink" href="#rules" title="Permalink to this headline">¶</a></h3>
+<ul>
+<li><p class="first">Signed up users can create a board, to which they can give any number of other users access.</p>
 </li>
 <li><dl class="first docutils">
-<dt>static:</dt>
-<dd><p class="first last">= css: all the stylesheets
-= js: all the external scripts</p>
+<dt>Each board can have 3 types of users with access:</dt>
+<dd><ul class="first last">
+<li><dl class="first docutils">
+<dt><strong>Owner</strong></dt>
+<dd><p class="first last">Can do everything others can plus: edit board title, terminate board early, invite others and control their permissions, and delete the board.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt><strong>Editor</strong></dt>
+<dd><p class="first last">Can do everything viewers can plus: edit the components of the board.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt><strong>Viewer</strong></dt>
+<dd><p class="first last">Can only view the board, export its content at any time, and participate in the sidebar chat.</p>
 </dd>
 </dl>
 </li>
 </ul>
 </dd>
 </dl>
-</dd>
-<dt>Purpose &amp; Functionality:</dt>
-<dd><dl class="first last docutils">
-<dt>General:</dt>
-<dd>The aim of this project is to create an easy, lightweight, realtime whiteboard to share/demonstrate ideas 
-in the form of components (for example: text, images, code, etc) that can be pieced together and edited
-by several people in a live session, and exported at any time.
-At this point in time, the only component available is text, along with the sidebar chat (which is available to everyone, edit privileges or not).
-The plan is to add components, and features (like exporting the board as text instead of image), gradually, until the project reaches its initial 
-purpose (stated above).</dd>
-<dt>Use case:</dt>
-<dd>A user who wishes to create a board registers an account, and proceeds to create it. Once created, they can invite others
-by email either to view the board, or to co-edit it. Invited persons can either directly access the board through their invite
-link, or register using the same email they&#8217;ve been invited with and access the board from their account. 
-The board lasts 24 hours by default, but can be marked as done/expire sooner if the owner marks it as done.
-Once expired, the final form of the board (and the sidebar chat) remain for everyone involved in the board to view or export. 
-Only the owner can delete the board, edit it, and invite people.
-Only signed in, non-owner invited users can remove themselves from the board entirely.</dd>
-</dl>
-</dd>
-</dl>
+</li>
+<li><p class="first"><strong>Editors</strong> and <strong>Viewers</strong> can access the board either by signing into the website using the email they were invited with or accessing it through their unique invite link.</p>
+</li>
+<li><p class="first">Any signed in user with access to a certain board who is also not its <strong>Owner</strong> can remove themselves at any time.</p>
+</li>
+<li><p class="first">To avoid editing conflict, only one person can edit the board at a time.</p>
+</li>
+</ul>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">In order to simplify interaction with the server, most of the &#8220;heavy lifting&#8221; is done client-side. The server simply records and supplies data about the board as needed, and the client pieces it together in the DOM. The client-side board logic can be found <a class="reference external" href="https://github.com/blaringsilence/pegasus/blob/master/pegasus/templates/show-board.html">on Github</a>.</p>
+</div>
+</div>
+<div class="section" id="installation">
+<h3>Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h3>
+<p>1. Clone the repo.</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span>$ git clone https://github.com/blaringsilence/pegasus.git
+$ cd pegasus
+</pre></div>
+</div>
+<p>2. Install <a class="reference external" href="https://pypi.python.org/pypi/virtualenv">virtualenv</a> and activate it.</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span>$ pip install virtualenv
+$ virtualenv venv
+$ . venv/bin/activate
+$ pip install -r requirements.txt
+</pre></div>
+</div>
+<p>3. Initialize the database.</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span>$ ./init_db.py
+</pre></div>
+</div>
+<p>4. Run the app.</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span>$ ./run_pegasus.py
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Default IP:port is 127.0.0.1:5000. You can change that by specifying the port and/or IP like this:
+<code class="docutils literal"><span class="pre">$</span> <span class="pre">./run_pegasus.py</span> <span class="pre">-ip</span> <span class="pre">IP_ADDRESS</span> <span class="pre">-port</span> <span class="pre">PORT_NUMBER</span></code></p>
+</div>
+</div>
+</div>
+<div class="section" id="docs">
+<span id="id1"></span><h2>Docs<a class="headerlink" href="#docs" title="Permalink to this headline">¶</a></h2>
+<span class="target" id="module-pegasus"></span><div class="section" id="app">
+<h3>App<a class="headerlink" href="#app" title="Permalink to this headline">¶</a></h3>
 <dl class="function">
 <dt id="pegasus.before_request">
 <code class="descclassname">pegasus.</code><code class="descname">before_request</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus.html#before_request"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.before_request" title="Permalink to this definition">¶</a></dt>
@@ -132,81 +167,87 @@ If there&#8217;s no token or the token is not equal to the one from the form, ab
 </dd></dl>
 
 </div>
-<span class="target" id="module-pegasus.errorhandlers"></span><div class="section" id="error-handlers">
-<h2>Error handlers<a class="headerlink" href="#error-handlers" title="Permalink to this headline">¶</a></h2>
-<p>How to handle common HTTP errors.</p>
-<dl class="function">
-<dt id="pegasus.errorhandlers.bad_request">
-<code class="descclassname">pegasus.errorhandlers.</code><code class="descname">bad_request</code><span class="sig-paren">(</span><em>e</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/errorhandlers.html#bad_request"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.errorhandlers.bad_request" title="Permalink to this definition">¶</a></dt>
-<dd><p>Render error template with the message: Bad Request and no details.</p>
-</dd></dl>
-
-<dl class="function">
-<dt id="pegasus.errorhandlers.forbidden">
-<code class="descclassname">pegasus.errorhandlers.</code><code class="descname">forbidden</code><span class="sig-paren">(</span><em>e</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/errorhandlers.html#forbidden"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.errorhandlers.forbidden" title="Permalink to this definition">¶</a></dt>
-<dd><p>Render error template with the message: Forbidden and no details.</p>
-</dd></dl>
-
-<dl class="function">
-<dt id="pegasus.errorhandlers.gone">
-<code class="descclassname">pegasus.errorhandlers.</code><code class="descname">gone</code><span class="sig-paren">(</span><em>e</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/errorhandlers.html#gone"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.errorhandlers.gone" title="Permalink to this definition">¶</a></dt>
-<dd><p>Render error template with the message: Page Gone and no details.</p>
-</dd></dl>
-
-<dl class="function">
-<dt id="pegasus.errorhandlers.internal_error">
-<code class="descclassname">pegasus.errorhandlers.</code><code class="descname">internal_error</code><span class="sig-paren">(</span><em>e</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/errorhandlers.html#internal_error"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.errorhandlers.internal_error" title="Permalink to this definition">¶</a></dt>
-<dd><p>Render error template with the message: Internal Server Error and no details.</p>
-</dd></dl>
-
-<dl class="function">
-<dt id="pegasus.errorhandlers.not_found">
-<code class="descclassname">pegasus.errorhandlers.</code><code class="descname">not_found</code><span class="sig-paren">(</span><em>e</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/errorhandlers.html#not_found"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.errorhandlers.not_found" title="Permalink to this definition">¶</a></dt>
-<dd><p>Render error template with the message: Page Not Found and details.</p>
-</dd></dl>
-
-<dl class="function">
-<dt id="pegasus.errorhandlers.render_error">
-<code class="descclassname">pegasus.errorhandlers.</code><code class="descname">render_error</code><span class="sig-paren">(</span><em>code</em>, <em>msg</em>, <em>det='Oops..'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/errorhandlers.html#render_error"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.errorhandlers.render_error" title="Permalink to this definition">¶</a></dt>
-<dd><p>Render template with variables appropriate to the error provided.</p>
-</dd></dl>
-
-<dl class="function">
-<dt id="pegasus.errorhandlers.unauthorized">
-<code class="descclassname">pegasus.errorhandlers.</code><code class="descname">unauthorized</code><span class="sig-paren">(</span><em>e</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/errorhandlers.html#unauthorized"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.errorhandlers.unauthorized" title="Permalink to this definition">¶</a></dt>
-<dd><p>Render error template with the message: Unauthorized and details.</p>
-</dd></dl>
-
-</div>
 <span class="target" id="module-pegasus.views"></span><div class="section" id="views">
-<h2>Views<a class="headerlink" href="#views" title="Permalink to this headline">¶</a></h2>
-<dl class="docutils">
-<dt>General:</dt>
-<dd>This file contains all the business logic related to the app &#8216;views&#8217;/URLs and how the server interacts
+<h3>Views<a class="headerlink" href="#views" title="Permalink to this headline">¶</a></h3>
+<p>This module contains all the business logic related to the app &#8216;views&#8217;/URLs and how the server interacts
 with the database.
 Because it&#8217;s a simple enough app, for now, queries are directly written instead of being processed by something like SQLAlchemy.
-All AJAX POST functions return a new CSRF-protection token as the token is per request, not per session.</dd>
-<dt>Division:</dt>
-<dd>1 - Function definitions.
-2 - Basic/rendered views.
-3 - API for AJAX requests.</dd>
-<dt>Database:</dt>
-<dd><dl class="first last docutils">
-<dt>In order for the following to make sense, here&#8217;s the database schema/logic:</dt>
-<dd><p class="first">&gt; TABLE NAME    : COLUMN_1(DESCRIPTION OF COLUMN optional), COLUMN_2(DESCRIPTION OF COLUMN optional),...
-&#8212;&#8212;&#8212;&#8212;-    &#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;-
-&gt; USERS         : ID, Name (optional), Username, Email, Join_Date (defaults to date of creation of row).</p>
+All AJAX POST functions return a new CSRF-protection token as the token is per request, not per session.</p>
+<div class="section" id="division">
+<h4>Division<a class="headerlink" href="#division" title="Permalink to this headline">¶</a></h4>
+<ol class="arabic simple">
+<li>Function definitions.</li>
+<li>Basic/rendered views.</li>
+<li>API for AJAX requests.</li>
+</ol>
+</div>
+<div class="section" id="database">
+<h4>Database<a class="headerlink" href="#database" title="Permalink to this headline">¶</a></h4>
 <dl class="docutils">
-<dt>&gt; BOARDS</dt>
- <span class="classifier-delimiter">:</span> <span class="classifier">ID, Title, CreatorID, Created_at (defaults to date of creation), Done_at (Created_at + 24hrs at creation),</span><dd>Locked_until (Locks are placed when someone edits the board and last 5 seconds to prevent editing the same thing at the same time by someone else.
-This column defaults to date of creation and is changed later), Locked_by (Who, in terms of userID or email, was the last to lock the board).</dd>
-<dt>&gt; BOARD_CONTENT</dt>
- <span class="classifier-delimiter">:</span> <span class="classifier">ID, BoardID, UserEmail (optional, in case an invited but not signed in user creates a component instance), UserID (optional, in case user is signed in),</span><dd>Created_at, Last_modified_at, Last_modified_by, position (optional, for components whose positions matter, like text),
-Deleted (boolean, &#8216;N&#8217; or &#8216;Y&#8217;).</dd>
-</dl>
-<p class="last">&gt; INVITES       : ID (UUID instead of auto-incrementing integer), BoardID, UserEmail, Invite_date, Type (view or edit).</p>
-</dd>
-</dl>
+<dt>In order for the following to make sense, here&#8217;s the database schema/logic:</dt>
+<dd><table border="1" class="first last docutils">
+<colgroup>
+<col width="9%" />
+<col width="91%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">TABLE</th>
+<th class="head">COLUMNS</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>USERS</td>
+<td><ul class="first last simple">
+<li>ID</li>
+<li>Name (optional)</li>
+<li>Username</li>
+<li>UserEmail</li>
+<li>Join_Date (defaults to date of creation of row)</li>
+</ul>
+</td>
+</tr>
+<tr class="row-odd"><td>BOARDS</td>
+<td><ul class="first simple">
+<li>ID</li>
+<li>Title</li>
+<li>CreatorID</li>
+<li>Created_at (defaults to date of creation)</li>
+<li>Done_at (Created_at + 24hrs at creation)</li>
+<li>Locked_until (Locks are placed when someone edits the board and last 5 seconds to prevent editing the same thing at the same time by someone else.</li>
+</ul>
+<blockquote>
+<div>This column defaults to date of creation and is changed later)</div></blockquote>
+<ul class="last simple">
+<li>Locked_by (Who, in terms of userID or email, was the last to lock the board)</li>
+</ul>
+</td>
+</tr>
+<tr class="row-even"><td>BOARD_CONTENT</td>
+<td><ul class="first last simple">
+<li>ID</li>
+<li>BoardID</li>
+<li>UserEmail (optional, in case an invited but not signed in user creates a component instance)</li>
+<li>UserID (optional, in case user is signed in)</li>
+<li>Created_at</li>
+<li>Last_modified_at</li>
+<li>Last_modified_by</li>
+<li>Position (optional, for components whose positions matter, like text)</li>
+<li>Deleted (boolean, &#8216;N&#8217; or &#8216;Y&#8217;)</li>
+</ul>
+</td>
+</tr>
+<tr class="row-odd"><td>INVITES</td>
+<td><ul class="first last simple">
+<li>ID (UUID instead of auto-incrementing integer)</li>
+<li>BoardID</li>
+<li>UserEmail</li>
+<li>Invite_date</li>
+<li>Type (view or edit)</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
 </dd>
 </dl>
 <dl class="function">
@@ -274,7 +315,7 @@ Deleted (boolean, &#8216;N&#8217; or &#8216;Y&#8217;).</dd>
 <dl class="function">
 <dt id="pegasus.views.get_random_string">
 <code class="descclassname">pegasus.views.</code><code class="descname">get_random_string</code><span class="sig-paren">(</span><em>length=32</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/views.html#get_random_string"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.views.get_random_string" title="Permalink to this definition">¶</a></dt>
-<dd><p>Generate a random string of length 32, used in <cite>generate_csrf_token()</cite></p>
+<dd><p>Generate a random string of length 32, used in <code class="docutils literal"><span class="pre">generate_csrf_token()</span></code></p>
 </dd></dl>
 
 <dl class="function">
@@ -320,7 +361,7 @@ Returns a hash that includes access (boolean), isOwner (boolean), canEditNow (bo
 <dt id="pegasus.views.lock_board">
 <code class="descclassname">pegasus.views.</code><code class="descname">lock_board</code><span class="sig-paren">(</span><em>boardID</em>, <em>userID=None</em>, <em>userEmail=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/views.html#lock_board"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.views.lock_board" title="Permalink to this definition">¶</a></dt>
 <dd><p>Called after making sure the board isn&#8217;t currently locked and the user has editing access.
-Any <a href="#id1"><span class="problematic" id="id2">`</span></a>sqlite3.Error`s handled in calling function.
+Any sqlite3.Error s handled in calling function.
 Lock the board for 5 seconds.</p>
 </dd></dl>
 
@@ -372,8 +413,11 @@ Lock the board for 5 seconds.</p>
 <dd><p>Show board with a specified <cite>boardID</cite>.</p>
 <dl class="docutils">
 <dt>Hierarchy of errors:</dt>
-<dd>1 - 404 : board not found.
-2 - 401 : not authorized. Person trying to view the board is not logged in with access to this board or does not have a (valid) invite code.</dd>
+<dd><ol class="first last arabic simple">
+<li><em>404</em> : board not found.</li>
+<li><em>401</em> : not authorized. Person trying to view the board is not logged in with access to this board or does not have a (valid) invite code.</li>
+</ol>
+</dd>
 </dl>
 <p>Renders the page (initially) according to the access type of the user (owner, edit, view).</p>
 </dd></dl>
@@ -398,6 +442,54 @@ Lock the board for 5 seconds.</p>
 
 </div>
 </div>
+<span class="target" id="module-pegasus.errorhandlers"></span><div class="section" id="error-handlers">
+<h3>Error handlers<a class="headerlink" href="#error-handlers" title="Permalink to this headline">¶</a></h3>
+<p>How to handle common HTTP errors.</p>
+<dl class="function">
+<dt id="pegasus.errorhandlers.bad_request">
+<code class="descclassname">pegasus.errorhandlers.</code><code class="descname">bad_request</code><span class="sig-paren">(</span><em>e</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/errorhandlers.html#bad_request"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.errorhandlers.bad_request" title="Permalink to this definition">¶</a></dt>
+<dd><p>Render error template with the message: Bad Request and no details.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pegasus.errorhandlers.forbidden">
+<code class="descclassname">pegasus.errorhandlers.</code><code class="descname">forbidden</code><span class="sig-paren">(</span><em>e</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/errorhandlers.html#forbidden"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.errorhandlers.forbidden" title="Permalink to this definition">¶</a></dt>
+<dd><p>Render error template with the message: Forbidden and no details.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pegasus.errorhandlers.gone">
+<code class="descclassname">pegasus.errorhandlers.</code><code class="descname">gone</code><span class="sig-paren">(</span><em>e</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/errorhandlers.html#gone"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.errorhandlers.gone" title="Permalink to this definition">¶</a></dt>
+<dd><p>Render error template with the message: Page Gone and no details.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pegasus.errorhandlers.internal_error">
+<code class="descclassname">pegasus.errorhandlers.</code><code class="descname">internal_error</code><span class="sig-paren">(</span><em>e</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/errorhandlers.html#internal_error"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.errorhandlers.internal_error" title="Permalink to this definition">¶</a></dt>
+<dd><p>Render error template with the message: Internal Server Error and no details.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pegasus.errorhandlers.not_found">
+<code class="descclassname">pegasus.errorhandlers.</code><code class="descname">not_found</code><span class="sig-paren">(</span><em>e</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/errorhandlers.html#not_found"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.errorhandlers.not_found" title="Permalink to this definition">¶</a></dt>
+<dd><p>Render error template with the message: Page Not Found and details.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pegasus.errorhandlers.render_error">
+<code class="descclassname">pegasus.errorhandlers.</code><code class="descname">render_error</code><span class="sig-paren">(</span><em>code</em>, <em>msg</em>, <em>det='Oops..'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/errorhandlers.html#render_error"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.errorhandlers.render_error" title="Permalink to this definition">¶</a></dt>
+<dd><p>Render template with variables appropriate to the error provided.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pegasus.errorhandlers.unauthorized">
+<code class="descclassname">pegasus.errorhandlers.</code><code class="descname">unauthorized</code><span class="sig-paren">(</span><em>e</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/errorhandlers.html#unauthorized"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.errorhandlers.unauthorized" title="Permalink to this definition">¶</a></dt>
+<dd><p>Render error template with the message: Unauthorized and details.</p>
+</dd></dl>
+
+</div>
+</div>
+</div>
 
 
           </div>
@@ -405,12 +497,28 @@ Lock the board for 5 seconds.</p>
       </div>
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="#">
+              <img class="logo" src="_static/docs_logo.png" alt="Logo"/>
+            </a></p>
   <h3><a href="#">Table Of Contents</a></h3>
   <ul>
-<li><a class="reference internal" href="#">Docs</a><ul>
-<li><a class="reference internal" href="#pegasus">Pegasus</a></li>
+<li><a class="reference internal" href="#">Pegasus</a><ul>
+<li><a class="reference internal" href="#introduction">Introduction</a><ul>
+<li><a class="reference internal" href="#about">About</a></li>
+<li><a class="reference internal" href="#rules">Rules</a></li>
+<li><a class="reference internal" href="#installation">Installation</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#docs">Docs</a><ul>
+<li><a class="reference internal" href="#app">App</a></li>
+<li><a class="reference internal" href="#views">Views</a><ul>
+<li><a class="reference internal" href="#division">Division</a></li>
+<li><a class="reference internal" href="#database">Database</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#error-handlers">Error handlers</a></li>
-<li><a class="reference internal" href="#views">Views</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -454,6 +562,10 @@ Lock the board for 5 seconds.</p>
           rel="nofollow">Page source</a>
     </div>
 
+    
+    <a href="https://github.com/blaringsilence/pegasus" class="github">
+        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"  class="github"/>
+    </a>
     
 
     
