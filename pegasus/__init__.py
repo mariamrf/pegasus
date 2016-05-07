@@ -1,4 +1,7 @@
-"""PEGASUS: A whiteboard collaboration tool built with Flask
+"""
+Pegasus
+-------
+A whiteboard collaboration tool built with Flask
 
 Files:
     The backend is divided into 3 main files, other than the database schema:

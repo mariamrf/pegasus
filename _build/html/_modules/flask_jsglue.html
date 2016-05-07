@@ -1,0 +1,190 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>flask_jsglue &mdash; Pegasus 0.1.0 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.1.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Pegasus 0.1.0 documentation" href="../index.html" />
+    <link rel="up" title="Module code" href="index.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for flask_jsglue</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">current_app</span><span class="p">,</span> <span class="n">make_response</span>
+<span class="kn">from</span> <span class="nn">jinja2</span> <span class="kn">import</span> <span class="n">Markup</span>
+<span class="kn">import</span> <span class="nn">re</span><span class="o">,</span> <span class="nn">json</span>
+   
+<span class="n">JSGLUE_JS_PATH</span> <span class="o">=</span> <span class="s1">&#39;/jsglue.js&#39;</span>
+<span class="n">JSGLUE_NAMESPACE</span> <span class="o">=</span> <span class="s1">&#39;Flask&#39;</span>
+<span class="n">rule_parser</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s1">r&#39;&lt;(.+?)&gt;&#39;</span><span class="p">)</span>
+<span class="n">splitter</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s1">r&#39;&lt;.+?&gt;&#39;</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">get_routes</span><span class="p">(</span><span class="n">app</span><span class="p">):</span>
+    <span class="n">output</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">app</span><span class="o">.</span><span class="n">url_map</span><span class="o">.</span><span class="n">iter_rules</span><span class="p">():</span>
+        <span class="n">endpoint</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">endpoint</span>
+        <span class="n">rule</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">rule</span>
+        <span class="n">rule_args</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;:&#39;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">rule_parser</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="n">rule</span><span class="p">)]</span>
+        <span class="n">rule_tr</span> <span class="o">=</span> <span class="n">splitter</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">rule</span><span class="p">)</span>
+        <span class="n">output</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">endpoint</span><span class="p">,</span> <span class="n">rule_tr</span><span class="p">,</span> <span class="n">rule_args</span><span class="p">))</span>
+    <span class="k">return</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="n">reverse</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+
+<span class="k">class</span> <span class="nc">JSGlue</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">app</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">app</span> <span class="o">=</span> <span class="n">app</span>
+        <span class="k">if</span> <span class="n">app</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">init_app</span><span class="p">(</span><span class="n">app</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">init_app</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">app</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">app</span> <span class="o">=</span> <span class="n">app</span>
+        <span class="nd">@app.route</span><span class="p">(</span><span class="n">JSGLUE_JS_PATH</span><span class="p">)</span>
+        <span class="k">def</span> <span class="nf">serve_js</span><span class="p">():</span>
+            <span class="k">return</span> <span class="n">make_response</span><span class="p">(</span>
+                <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">generate_js</span><span class="p">(),</span> <span class="mi">200</span><span class="p">,</span> <span class="p">{</span><span class="s1">&#39;Content-Type&#39;</span><span class="p">:</span> <span class="s1">&#39;text/javascript&#39;</span><span class="p">})</span>
+            <span class="p">)</span>
+        <span class="nd">@app.context_processor</span>
+        <span class="k">def</span> <span class="nf">context_processor</span><span class="p">():</span>
+            <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;JSGlue&#39;</span><span class="p">:</span> <span class="n">JSGlue</span><span class="p">}</span>
+
+    <span class="k">def</span> <span class="nf">generate_js</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">rules</span> <span class="o">=</span> <span class="n">get_routes</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">var </span><span class="si">%s</span><span class="s2"> = new (function(){ return {</span>
+<span class="s2">        &#39;_endpoints&#39;: </span><span class="si">%s</span><span class="s2">,</span>
+<span class="s2">        &#39;url_for&#39;: function(endpoint, rule) {</span>
+<span class="s2">            if(rule === undefined) rule = {};</span>
+
+<span class="s2">            var has_everything = false, url = &quot;&quot;;</span>
+<span class="s2">            </span>
+<span class="s2">            var is_absolute = false, has_anchor = false, has_scheme;</span>
+<span class="s2">            var anchor = &quot;&quot;, scheme = &quot;&quot;;</span>
+
+<span class="s2">            if(rule[&#39;_external&#39;] === true) {</span>
+<span class="s2">                is_absolute = true; </span>
+<span class="s2">                scheme = location.protocol.split(&#39;:&#39;)[0];</span>
+<span class="s2">                delete rule[&#39;_external&#39;];</span>
+<span class="s2">            }</span>
+
+<span class="s2">            if(rule[&#39;_scheme&#39;] !== undefined) {</span>
+<span class="s2">                if(is_absolute) {</span>
+<span class="s2">                    scheme = rule[&#39;_scheme&#39;];</span>
+<span class="s2">                    delete rule[&#39;_scheme&#39;];</span>
+<span class="s2">                } else {</span>
+<span class="s2">                    throw {name:&quot;ValueError&quot;, message:&quot;_scheme is set without _external.&quot;};</span>
+<span class="s2">                }</span>
+<span class="s2">            }</span>
+
+<span class="s2">            if(rule[&#39;_anchor&#39;] !== undefined) {</span>
+<span class="s2">                has_anchor = true;</span>
+<span class="s2">                anchor = rule[&#39;_anchor&#39;];</span>
+<span class="s2">                delete rule[&#39;_anchor&#39;];</span>
+<span class="s2">            }</span>
+
+<span class="s2">            for(var i in this._endpoints) {</span>
+<span class="s2">                if(endpoint == this._endpoints[i][0]) {</span>
+<span class="s2">                    url = &#39;&#39;; j = 0; has_everything = true;</span>
+<span class="s2">                    for(var j = 0; j &lt; this._endpoints[i][2].length; j++) {</span>
+<span class="s2">                        t = rule[this._endpoints[i][2][j]];</span>
+<span class="s2">                        if(t == undefined) {</span>
+<span class="s2">                            has_everything = false;</span>
+<span class="s2">                            break;</span>
+<span class="s2">                        }</span>
+<span class="s2">                        url += this._endpoints[i][1][j] + t;</span>
+<span class="s2">                    }</span>
+<span class="s2">                    if(has_everything) {</span>
+<span class="s2">                        if(this._endpoints[i][2].length != this._endpoints[i][1].length) </span>
+<span class="s2">                            url += this._endpoints[i][1][j];</span>
+
+<span class="s2">                        if(has_anchor) {</span>
+<span class="s2">                            url += &quot;#&quot; + anchor;</span>
+<span class="s2">                        }</span>
+
+<span class="s2">                        if(is_absolute) {</span>
+<span class="s2">                            return scheme + &quot;://&quot; + location.host + url;</span>
+<span class="s2">                        } else {</span>
+<span class="s2">                            return url;</span>
+<span class="s2">                        }</span>
+<span class="s2">                    }</span>
+<span class="s2">                }</span>
+<span class="s2">            }                </span>
+
+<span class="s2">            throw {name: &#39;BuildError&#39;, message: &quot;Couldn&#39;t find the matching endpoint.&quot;};</span>
+<span class="s2">        }</span>
+<span class="s2">};});&quot;&quot;&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">JSGLUE_NAMESPACE</span><span class="p">,</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">rules</span><span class="p">))</span> 
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">include</span><span class="p">():</span>
+        <span class="k">return</span> <span class="n">Markup</span><span class="p">(</span><span class="s1">&#39;&lt;script src=&quot;</span><span class="si">%s</span><span class="s1">&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">JSGLUE_JS_PATH</span><span class="p">,</span> <span class="p">))</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, Mariam Maarouf.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.4.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.8</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

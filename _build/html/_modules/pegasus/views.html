@@ -1,0 +1,851 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>pegasus.views &mdash; Pegasus 0.1.0 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '0.1.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Pegasus 0.1.0 documentation" href="../../index.html" />
+    <link rel="up" title="pegasus" href="../pegasus.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pegasus.views</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Views</span>
+<span class="sd">------</span>
+
+<span class="sd">General:</span>
+<span class="sd">    This file contains all the business logic related to the app &#39;views&#39;/URLs and how the server interacts</span>
+<span class="sd">    with the database.</span>
+<span class="sd">    Because it&#39;s a simple enough app, for now, queries are directly written instead of being processed by something like SQLAlchemy.</span>
+<span class="sd">    All AJAX POST functions return a new CSRF-protection token as the token is per request, not per session.</span>
+
+<span class="sd">Division:</span>
+<span class="sd">    1 - Function definitions.</span>
+<span class="sd">    2 - Basic/rendered views.</span>
+<span class="sd">    3 - API for AJAX requests.</span>
+
+<span class="sd">Database:</span>
+<span class="sd">    In order for the following to make sense, here&#39;s the database schema/logic:</span>
+<span class="sd">        &gt; TABLE NAME    : COLUMN_1(DESCRIPTION OF COLUMN optional), COLUMN_2(DESCRIPTION OF COLUMN optional),...</span>
+<span class="sd">        -------------    ----------------------------------------------------------------------------------------</span>
+<span class="sd">        &gt; USERS         : ID, Name (optional), Username, Email, Join_Date (defaults to date of creation of row).</span>
+
+<span class="sd">        &gt; BOARDS        : ID, Title, CreatorID, Created_at (defaults to date of creation), Done_at (Created_at + 24hrs at creation),</span>
+<span class="sd">                          Locked_until (Locks are placed when someone edits the board and last 5 seconds to prevent editing the same thing at the same time by someone else.</span>
+<span class="sd">                          This column defaults to date of creation and is changed later), Locked_by (Who, in terms of userID or email, was the last to lock the board).</span>
+
+<span class="sd">        &gt; BOARD_CONTENT : ID, BoardID, UserEmail (optional, in case an invited but not signed in user creates a component instance), UserID (optional, in case user is signed in),</span>
+<span class="sd">                          Created_at, Last_modified_at, Last_modified_by, position (optional, for components whose positions matter, like text),</span>
+<span class="sd">                          Deleted (boolean, &#39;N&#39; or &#39;Y&#39;).</span>
+
+<span class="sd">        &gt; INVITES       : ID (UUID instead of auto-incrementing integer), BoardID, UserEmail, Invite_date, Type (view or edit).</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">pegasus</span> <span class="kn">import</span> <span class="n">app</span>
+<span class="kn">import</span> <span class="nn">sqlite3</span>
+<span class="kn">import</span> <span class="nn">uuid</span>
+<span class="kn">import</span> <span class="nn">string</span>
+<span class="kn">import</span> <span class="nn">random</span>
+<span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">request</span><span class="p">,</span> <span class="n">session</span><span class="p">,</span> <span class="n">g</span><span class="p">,</span> <span class="n">redirect</span><span class="p">,</span> <span class="n">url_for</span><span class="p">,</span> <span class="n">abort</span><span class="p">,</span> <span class="n">render_template</span><span class="p">,</span> <span class="n">flash</span><span class="p">,</span> <span class="n">jsonify</span>
+<span class="kn">from</span> <span class="nn">werkzeug.security</span> <span class="kn">import</span> <span class="n">generate_password_hash</span><span class="p">,</span> <span class="n">check_password_hash</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
+<span class="kn">from</span> <span class="nn">itertools</span> <span class="kn">import</span> <span class="n">islice</span>
+
+
+
+<span class="c1"># all the definitions</span>
+<div class="viewcode-block" id="get_random_string"><a class="viewcode-back" href="../../index.html#pegasus.views.get_random_string">[docs]</a><span class="k">def</span> <span class="nf">get_random_string</span><span class="p">(</span><span class="n">length</span><span class="o">=</span><span class="mi">32</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Generate a random string of length 32, used in `generate_csrf_token()`&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="s1">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">string</span><span class="o">.</span><span class="n">ascii_letters</span> <span class="o">+</span> <span class="n">string</span><span class="o">.</span><span class="n">digits</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">length</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="generate_csrf_token"><a class="viewcode-back" href="../../index.html#pegasus.views.generate_csrf_token">[docs]</a><span class="k">def</span> <span class="nf">generate_csrf_token</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;Create a CSRF-protection token if one doesn&#39;t already exist in the user&#39;s session and put it there.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="s1">&#39;_csrf_token&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">session</span><span class="p">:</span>
+        <span class="n">session</span><span class="p">[</span><span class="s1">&#39;_csrf_token&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">get_random_string</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">session</span><span class="p">[</span><span class="s1">&#39;_csrf_token&#39;</span><span class="p">]</span></div>
+
+<span class="n">app</span><span class="o">.</span><span class="n">jinja_env</span><span class="o">.</span><span class="n">globals</span><span class="p">[</span><span class="s1">&#39;csrf_token&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">generate_csrf_token</span>
+<span class="sd">&quot;&quot;&quot;So whenever `{{ csrf_token() }}` is used in a Jinja2 template, it returns the result of the function `generate_csrf_token()` &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="login_user"><a class="viewcode-back" href="../../index.html#pegasus.views.login_user">[docs]</a><span class="k">def</span> <span class="nf">login_user</span><span class="p">(</span><span class="n">username</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Login user using their username. Put username and userid (find in database) in their respective sessions.&quot;&quot;&quot;</span>
+    <span class="n">session</span><span class="p">[</span><span class="s1">&#39;logged_in&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">True</span>
+    <span class="n">session</span><span class="p">[</span><span class="s1">&#39;username&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">username</span>
+    <span class="n">cur</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;select id from users where username=?&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">username</span><span class="p">])</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+    <span class="n">uid</span> <span class="o">=</span> <span class="n">cur</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">session</span><span class="p">[</span><span class="s1">&#39;userid&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">uid</span> <span class="c1"># to register any info in another table where userid is a FK instead of querying every time</span></div>
+
+
+<div class="viewcode-block" id="is_owner"><a class="viewcode-back" href="../../index.html#pegasus.views.is_owner">[docs]</a><span class="k">def</span> <span class="nf">is_owner</span><span class="p">(</span><span class="n">boardID</span><span class="p">,</span> <span class="n">userID</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Check if a user is the owner of a certain board.&quot;&quot;&quot;</span>
+    <span class="n">cur</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;select creatorID from boards where id=?&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">boardID</span><span class="p">])</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">cur</span> <span class="o">==</span> <span class="n">userID</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">True</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">False</span></div>
+
+<div class="viewcode-block" id="lock_board"><a class="viewcode-back" href="../../index.html#pegasus.views.lock_board">[docs]</a><span class="k">def</span> <span class="nf">lock_board</span><span class="p">(</span><span class="n">boardID</span><span class="p">,</span> <span class="n">userID</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">userEmail</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span> 
+    <span class="sd">&quot;&quot;&quot;Called after making sure the board isn&#39;t currently locked and the user has editing access.</span>
+<span class="sd">    Any `sqlite3.Error`s handled in calling function.</span>
+<span class="sd">    Lock the board for 5 seconds.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">user</span> <span class="o">=</span> <span class="n">userID</span> <span class="k">if</span> <span class="n">userID</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="k">else</span> <span class="n">userEmail</span>
+    <span class="n">lock</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span> <span class="o">+</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">seconds</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span> 
+    <span class="n">lock_time</span> <span class="o">=</span> <span class="n">lock</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s1">&#39;%Y-%m-</span><span class="si">%d</span><span class="s1"> %H:%M:%S&#39;</span><span class="p">)</span>
+    <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;update boards set locked_until=?, locked_by=? where id=?&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">lock_time</span><span class="p">,</span> <span class="n">user</span><span class="p">,</span> <span class="n">boardID</span><span class="p">])</span>
+    <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="is_authorized"><a class="viewcode-back" href="../../index.html#pegasus.views.is_authorized">[docs]</a><span class="k">def</span> <span class="nf">is_authorized</span><span class="p">(</span><span class="n">boardID</span><span class="p">,</span> <span class="n">wantToEdit</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Check if a certain signed in user (who by default doesn&#39;t want to edit the board) is authorized to access it, </span>
+<span class="sd">    and if yes, what&#39;s the extent of their access? View/Edit/Owner.</span>
+<span class="sd">    If edit/owner, can they edit now? (if the board is not locked, this function will lock it for them).</span>
+<span class="sd">    Returns a hash that includes access (boolean), isOwner (boolean), canEditNow (boolean), and accessType (str)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">access</span> <span class="o">=</span> <span class="bp">False</span>
+    <span class="n">isOwner</span> <span class="o">=</span> <span class="bp">False</span>
+    <span class="n">accessType</span> <span class="o">=</span> <span class="bp">None</span>
+    <span class="n">canEditNow</span> <span class="o">=</span> <span class="bp">False</span>
+    <span class="k">if</span> <span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;logged_in&#39;</span><span class="p">):</span>
+        <span class="c1"># not counting in the invitation link logic here</span>
+        <span class="n">uid</span> <span class="o">=</span> <span class="n">session</span><span class="p">[</span><span class="s1">&#39;userid&#39;</span><span class="p">]</span>
+        <span class="c1"># are they the owner?</span>
+        <span class="k">if</span> <span class="n">is_owner</span><span class="p">(</span><span class="n">boardID</span><span class="p">,</span> <span class="n">uid</span><span class="p">):</span>
+            <span class="n">access</span> <span class="o">=</span> <span class="bp">True</span>
+            <span class="n">isOwner</span> <span class="o">=</span> <span class="bp">True</span>
+            <span class="n">accessType</span> <span class="o">=</span> <span class="s1">&#39;edit&#39;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">uemail</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;select email from users where id=?&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">uid</span><span class="p">])</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">cur2</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;select type from invites where boardID=? and userEmail=?&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">boardID</span><span class="p">,</span> <span class="n">uemail</span><span class="p">])</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">cur2</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+                <span class="n">access</span> <span class="o">=</span> <span class="bp">True</span>
+                <span class="n">accessType</span> <span class="o">=</span> <span class="n">cur2</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">accessType</span> <span class="o">==</span><span class="s1">&#39;edit&#39;</span> <span class="ow">and</span> <span class="n">wantToEdit</span><span class="p">:</span>
+            <span class="c1"># boardID must exist at this point, checked by calling functions</span>
+            <span class="n">lock</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;select locked_until, locked_by from boards where id=?&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">boardID</span><span class="p">])</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">lock</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+                <span class="n">lockedUntil</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">lock</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s1">&#39;%Y-%m-</span><span class="si">%d</span><span class="s1"> %H:%M:%S&#39;</span><span class="p">)</span>
+                <span class="n">lockedBy</span> <span class="o">=</span> <span class="n">lock</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+                <span class="k">if</span> <span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span> <span class="o">&gt;</span> <span class="n">lockedUntil</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span> <span class="o">&lt;</span> <span class="n">lockedUntil</span> <span class="ow">and</span> <span class="nb">int</span><span class="p">(</span><span class="n">lockedBy</span><span class="p">)</span> <span class="o">==</span> <span class="n">uid</span><span class="p">):</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="n">lock_board</span><span class="p">(</span><span class="n">boardID</span><span class="p">,</span> <span class="n">userID</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">uid</span><span class="p">))</span>
+                        <span class="n">canEditNow</span> <span class="o">=</span> <span class="bp">True</span>
+                    <span class="k">except</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">Error</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                        <span class="k">pass</span>
+    <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;access&#39;</span><span class="p">:</span><span class="n">access</span><span class="p">,</span> <span class="s1">&#39;isOwner&#39;</span><span class="p">:</span><span class="n">isOwner</span><span class="p">,</span> <span class="s1">&#39;accessType&#39;</span><span class="p">:</span><span class="n">accessType</span><span class="p">,</span> <span class="s1">&#39;canEditNow&#39;</span><span class="p">:</span><span class="n">canEditNow</span><span class="p">}</span></div>
+
+
+
+
+
+    
+<span class="c1"># routing (views)</span>
+<span class="nd">@app.route</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span>
+<div class="viewcode-block" id="index"><a class="viewcode-back" href="../../index.html#pegasus.views.index">[docs]</a><span class="k">def</span> <span class="nf">index</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;Helpers for the index page.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;logged_in&#39;</span><span class="p">):</span>
+        <span class="n">email</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;select email from users where id=?&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">session</span><span class="p">[</span><span class="s1">&#39;userid&#39;</span><span class="p">]])</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="n">cur2</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;select id, title from boards where id in (select boardID from invites where userEmail=?)&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">email</span><span class="p">])</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+        <span class="n">invitedLi</span> <span class="o">=</span> <span class="p">[</span><span class="nb">dict</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="n">row</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">title</span><span class="o">=</span><span class="n">row</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">cur2</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">render_template</span><span class="p">(</span><span class="s1">&#39;show_list.html&#39;</span><span class="p">,</span> <span class="n">invitedBoards</span><span class="o">=</span><span class="n">invitedLi</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">cur</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;select username, join_date from users order by id&#39;</span><span class="p">)</span>
+        <span class="n">li</span> <span class="o">=</span> <span class="p">[</span><span class="nb">dict</span><span class="p">(</span><span class="n">username</span><span class="o">=</span><span class="n">row</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">jdate</span><span class="o">=</span><span class="n">row</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">cur</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()]</span>
+        <span class="k">return</span> <span class="n">render_template</span><span class="p">(</span><span class="s1">&#39;show_list.html&#39;</span><span class="p">,</span> <span class="n">li</span><span class="o">=</span><span class="n">li</span><span class="p">)</span></div>
+
+<span class="nd">@app.route</span><span class="p">(</span><span class="s1">&#39;/register&#39;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;GET&#39;</span><span class="p">,</span> <span class="s1">&#39;POST&#39;</span><span class="p">])</span>
+<div class="viewcode-block" id="register_user"><a class="viewcode-back" href="../../index.html#pegasus.views.register_user">[docs]</a><span class="k">def</span> <span class="nf">register_user</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;If not logged in and POST, register new user and go to index. If an error occurs, render the same register template again but with an error.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;logged_in&#39;</span><span class="p">):</span>
+        <span class="n">abort</span><span class="p">(</span><span class="mi">401</span><span class="p">)</span>
+    <span class="n">error</span> <span class="o">=</span> <span class="bp">None</span>
+    <span class="k">if</span> <span class="n">request</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;POST&#39;</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">pw</span> <span class="o">=</span> <span class="n">generate_password_hash</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="p">[</span><span class="s1">&#39;password&#39;</span><span class="p">])</span>
+            <span class="n">un</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="p">[</span><span class="s1">&#39;username&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+            <span class="n">em</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="p">[</span><span class="s1">&#39;email&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+            <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;insert into users (username, password, email, name) values (?, ?, ?, ?)&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">un</span><span class="p">,</span> <span class="n">pw</span><span class="p">,</span> <span class="n">em</span><span class="p">,</span> <span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]])</span>
+            <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+            <span class="n">login_user</span><span class="p">(</span><span class="n">un</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="n">url_for</span><span class="p">(</span><span class="s1">&#39;index&#39;</span><span class="p">))</span>
+        <span class="k">except</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">IntegrityError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">32</span><span class="p">:]</span> <span class="o">==</span> <span class="s1">&#39;email&#39;</span><span class="p">:</span>
+                <span class="n">error</span> <span class="o">=</span> <span class="s1">&#39;Email&#39;</span>
+            <span class="k">elif</span> <span class="n">e</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">32</span><span class="p">:]</span> <span class="o">==</span> <span class="s1">&#39;username&#39;</span><span class="p">:</span>
+                <span class="n">error</span> <span class="o">=</span> <span class="s1">&#39;Username&#39;</span>
+            <span class="n">error</span> <span class="o">=</span> <span class="n">error</span> <span class="o">+</span> <span class="s1">&#39; already in use.&#39;</span>
+    <span class="k">return</span> <span class="n">render_template</span><span class="p">(</span><span class="s1">&#39;register.html&#39;</span><span class="p">,</span> <span class="n">error</span><span class="o">=</span><span class="n">error</span><span class="p">)</span></div>
+
+<span class="nd">@app.route</span><span class="p">(</span><span class="s1">&#39;/login&#39;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;GET&#39;</span><span class="p">,</span> <span class="s1">&#39;POST&#39;</span><span class="p">])</span>
+<div class="viewcode-block" id="login"><a class="viewcode-back" href="../../index.html#pegasus.views.login">[docs]</a><span class="k">def</span> <span class="nf">login</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;Attempt login. If credentials check out, go to index. If not, render login template with error.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;logged_in&#39;</span><span class="p">):</span>
+        <span class="n">abort</span><span class="p">(</span><span class="mi">401</span><span class="p">)</span>
+    <span class="n">error</span> <span class="o">=</span> <span class="bp">None</span>
+    <span class="k">if</span> <span class="n">request</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;POST&#39;</span><span class="p">:</span>
+        <span class="n">cur</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;select username, password from users where username=?&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="p">[</span><span class="s1">&#39;username&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()])</span>
+        <span class="n">cur_res</span> <span class="o">=</span> <span class="n">cur</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">cur_res</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">error</span> <span class="o">=</span> <span class="s1">&#39;Invalid username&#39;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">username</span> <span class="o">=</span> <span class="n">cur_res</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">pw</span> <span class="o">=</span> <span class="n">cur_res</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">check_password_hash</span><span class="p">(</span><span class="n">pw</span><span class="p">,</span> <span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="p">[</span><span class="s1">&#39;password&#39;</span><span class="p">])</span> <span class="o">==</span> <span class="bp">False</span><span class="p">:</span> <span class="c1"># ouch</span>
+                <span class="n">error</span> <span class="o">=</span> <span class="s1">&#39;Invalid password&#39;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">login_user</span><span class="p">(</span><span class="n">username</span><span class="p">)</span>
+                <span class="n">flash</span><span class="p">(</span><span class="s1">&#39;Hey there!&#39;</span><span class="p">,</span> <span class="s1">&#39;info&#39;</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="n">url_for</span><span class="p">(</span><span class="s1">&#39;index&#39;</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">render_template</span><span class="p">(</span><span class="s1">&#39;login.html&#39;</span><span class="p">,</span> <span class="n">error</span><span class="o">=</span><span class="n">error</span><span class="p">)</span></div>
+
+<span class="nd">@app.route</span><span class="p">(</span><span class="s1">&#39;/profile&#39;</span><span class="p">)</span>
+<div class="viewcode-block" id="show_profile"><a class="viewcode-back" href="../../index.html#pegasus.views.show_profile">[docs]</a><span class="k">def</span> <span class="nf">show_profile</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;Render profile for logged in user.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;logged_in&#39;</span><span class="p">):</span>
+        <span class="n">abort</span><span class="p">(</span><span class="mi">401</span><span class="p">)</span>
+    <span class="n">uid</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;userid&#39;</span><span class="p">)</span>
+    <span class="n">cur</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;select name, email from users where id=?&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">uid</span><span class="p">])</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+    <span class="n">cur2</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;select id, title from boards where creatorID=?&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">uid</span><span class="p">])</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+    <span class="n">boards</span> <span class="o">=</span> <span class="p">[</span><span class="nb">dict</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="n">row</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">title</span><span class="o">=</span><span class="n">row</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">cur2</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">render_template</span><span class="p">(</span><span class="s1">&#39;profile.html&#39;</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">cur</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">email</span><span class="o">=</span><span class="n">cur</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">boards</span><span class="o">=</span><span class="n">boards</span><span class="p">)</span></div>
+
+<span class="nd">@app.route</span><span class="p">(</span><span class="s1">&#39;/logout&#39;</span><span class="p">)</span>
+<div class="viewcode-block" id="logout"><a class="viewcode-back" href="../../index.html#pegasus.views.logout">[docs]</a><span class="k">def</span> <span class="nf">logout</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;Logout currently logged in user and redirect to home.&quot;&quot;&quot;</span>
+    <span class="n">session</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;logged_in&#39;</span><span class="p">,</span> <span class="bp">None</span><span class="p">)</span>
+    <span class="n">session</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;username&#39;</span><span class="p">,</span> <span class="bp">None</span><span class="p">)</span>
+    <span class="n">session</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;userid&#39;</span><span class="p">,</span> <span class="bp">None</span><span class="p">)</span>
+    <span class="n">flash</span><span class="p">(</span><span class="s1">&#39;You go bye bye :(&#39;</span><span class="p">,</span> <span class="s1">&#39;warning&#39;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="n">url_for</span><span class="p">(</span><span class="s1">&#39;index&#39;</span><span class="p">))</span> <span class="c1"># always going there..</span></div>
+
+<span class="nd">@app.route</span><span class="p">(</span><span class="s1">&#39;/new-board&#39;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;GET&#39;</span><span class="p">,</span> <span class="s1">&#39;POST&#39;</span><span class="p">])</span>
+<div class="viewcode-block" id="create_board"><a class="viewcode-back" href="../../index.html#pegasus.views.create_board">[docs]</a><span class="k">def</span> <span class="nf">create_board</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;Create a new board.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;logged_in&#39;</span><span class="p">):</span>
+        <span class="n">abort</span><span class="p">(</span><span class="mi">401</span><span class="p">)</span>
+    <span class="n">error</span> <span class="o">=</span> <span class="bp">None</span>
+    <span class="k">if</span> <span class="n">request</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;POST&#39;</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">uid</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;userid&#39;</span><span class="p">)</span>
+            <span class="n">title</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="p">[</span><span class="s1">&#39;title&#39;</span><span class="p">]</span>
+            <span class="n">done</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span> <span class="o">+</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">done_at</span> <span class="o">=</span> <span class="n">done</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s1">&#39;%Y-%m-</span><span class="si">%d</span><span class="s1"> %H:%M:%S&#39;</span><span class="p">)</span>
+            <span class="n">locked_by</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">uid</span><span class="p">)</span>
+            <span class="n">cur</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span>
+            <span class="n">cur</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;insert into boards (creatorID, title, done_at, locked_by) values (?, ?, ?, ?)&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">uid</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">done_at</span><span class="p">,</span> <span class="n">uid</span><span class="p">])</span>
+            <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+            <span class="n">boardID</span> <span class="o">=</span> <span class="n">cur</span><span class="o">.</span><span class="n">lastrowid</span>
+            <span class="n">cur</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="n">url_for</span><span class="p">(</span><span class="s1">&#39;show_board&#39;</span><span class="p">,</span> <span class="n">boardID</span><span class="o">=</span><span class="n">boardID</span><span class="p">))</span>
+        <span class="k">except</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">Error</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">error</span> <span class="o">=</span> <span class="s1">&#39;An error occured: &#39;</span> <span class="o">+</span> <span class="n">e</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">render_template</span><span class="p">(</span><span class="s1">&#39;new-board.html&#39;</span><span class="p">,</span> <span class="n">error</span><span class="o">=</span><span class="n">error</span><span class="p">)</span></div>
+
+<span class="nd">@app.route</span><span class="p">(</span><span class="s1">&#39;/board/&lt;boardID&gt;&#39;</span><span class="p">)</span>
+<div class="viewcode-block" id="show_board"><a class="viewcode-back" href="../../index.html#pegasus.views.show_board">[docs]</a><span class="k">def</span> <span class="nf">show_board</span><span class="p">(</span><span class="n">boardID</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Show board with a specified `boardID`.</span>
+
+<span class="sd">    Hierarchy of errors:</span>
+<span class="sd">        1 - 404 : board not found.</span>
+<span class="sd">        2 - 401 : not authorized. Person trying to view the board is not logged in with access to this board or does not have a (valid) invite code.</span>
+
+<span class="sd">    Renders the page (initially) according to the access type of the user (owner, edit, view).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># first, check if there&#39;s even a board</span>
+    <span class="n">curB</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;select title, created_at, done_at from boards where id=?&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">boardID</span><span class="p">])</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">curB</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">abort</span><span class="p">(</span><span class="mi">404</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">invite</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;invite&#39;</span><span class="p">)</span> <span class="c1"># ?invite=INVITE_ID</span>
+        <span class="n">auth</span> <span class="o">=</span> <span class="n">is_authorized</span><span class="p">(</span><span class="n">boardID</span><span class="p">)</span>
+        <span class="n">can_participate</span> <span class="o">=</span> <span class="bp">False</span>
+        <span class="n">done_at</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">curB</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="s1">&#39;%Y-%m-</span><span class="si">%d</span><span class="s1"> %H:%M:%S&#39;</span><span class="p">)</span>
+        <span class="n">isDone</span> <span class="o">=</span> <span class="bp">False</span>
+        <span class="k">if</span><span class="p">(</span><span class="n">done_at</span> <span class="o">&lt;</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()):</span>
+            <span class="n">isDone</span> <span class="o">=</span> <span class="bp">True</span>
+        <span class="k">if</span> <span class="n">auth</span><span class="p">[</span><span class="s1">&#39;access&#39;</span><span class="p">]:</span> <span class="c1"># don&#39;t care if there&#39;s an invite string as long as you have access while logged in</span>
+            <span class="k">if</span> <span class="n">auth</span><span class="p">[</span><span class="s1">&#39;accessType&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;edit&#39;</span><span class="p">:</span>
+                <span class="n">can_participate</span> <span class="o">=</span> <span class="bp">True</span>
+            <span class="k">return</span> <span class="n">render_template</span><span class="p">(</span><span class="s1">&#39;show-board.html&#39;</span><span class="p">,</span> <span class="n">canEdit</span><span class="o">=</span><span class="n">can_participate</span><span class="p">,</span> <span class="n">isDone</span><span class="o">=</span><span class="n">isDone</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">curB</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">created_at</span><span class="o">=</span><span class="n">curB</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">done_at</span><span class="o">=</span><span class="n">curB</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">isOwner</span><span class="o">=</span><span class="n">auth</span><span class="p">[</span><span class="s1">&#39;isOwner&#39;</span><span class="p">],</span> <span class="n">boardID</span><span class="o">=</span><span class="n">boardID</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">invite</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">cur</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;select userEmail, type from invites where id=? and boardID=?&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">invite</span><span class="p">,</span> <span class="n">boardID</span><span class="p">])</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">cur</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+                <span class="n">abort</span><span class="p">(</span><span class="mi">401</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">cur</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;edit&#39;</span><span class="p">:</span>
+                    <span class="n">can_participate</span> <span class="o">=</span> <span class="bp">True</span>
+                <span class="k">return</span> <span class="n">render_template</span><span class="p">(</span><span class="s1">&#39;show-board.html&#39;</span><span class="p">,</span> <span class="n">canEdit</span><span class="o">=</span><span class="n">can_participate</span><span class="p">,</span> <span class="n">isDone</span><span class="o">=</span><span class="n">isDone</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">curB</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">created_at</span><span class="o">=</span><span class="n">curB</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">done_at</span><span class="o">=</span><span class="n">curB</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">email</span><span class="o">=</span><span class="n">cur</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">boardID</span><span class="o">=</span><span class="n">boardID</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">abort</span><span class="p">(</span><span class="mi">401</span><span class="p">)</span></div>
+
+
+<span class="nd">@app.route</span><span class="p">(</span><span class="s1">&#39;/_removeSelf&#39;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;POST&#39;</span><span class="p">])</span>
+<div class="viewcode-block" id="remove_self"><a class="viewcode-back" href="../../index.html#pegasus.views.remove_self">[docs]</a><span class="k">def</span> <span class="nf">remove_self</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;Removes logged in user, who is not the owner of a board, from a certain board they&#39;d been invited to.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;logged_in&#39;</span><span class="p">):</span>
+        <span class="n">abort</span><span class="p">(</span><span class="mi">401</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">error</span> <span class="o">=</span> <span class="s1">&#39;None&#39;</span>
+        <span class="n">person</span> <span class="o">=</span> <span class="n">session</span><span class="p">[</span><span class="s1">&#39;userid&#39;</span><span class="p">]</span>
+        <span class="n">bid</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="p">[</span><span class="s1">&#39;boardID&#39;</span><span class="p">])</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">cur</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;select email from users where id=?&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">person</span><span class="p">])</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">cur</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+                <span class="n">abort</span><span class="p">(</span><span class="mi">400</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">email</span> <span class="o">=</span> <span class="n">cur</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+                <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;delete from invites where boardID=? and userEmail=?&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">bid</span><span class="p">,</span> <span class="n">email</span><span class="p">])</span>
+                <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+        <span class="k">except</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">Error</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">error</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span><span class="p">(</span><span class="n">error</span><span class="o">==</span><span class="s1">&#39;None&#39;</span><span class="p">):</span>
+            <span class="n">flash</span><span class="p">(</span><span class="s1">&#39;Successfully removed you from the board.&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">flash</span><span class="p">(</span><span class="n">error</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="n">url_for</span><span class="p">(</span><span class="s1">&#39;index&#39;</span><span class="p">))</span></div>
+
+
+
+<span class="c1"># AJAX functions</span>
+<span class="c1">## GET</span>
+<span class="nd">@app.route</span><span class="p">(</span><span class="s1">&#39;/_validateUsername&#39;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;GET&#39;</span><span class="p">])</span>
+<div class="viewcode-block" id="validate_username"><a class="viewcode-back" href="../../index.html#pegasus.views.validate_username">[docs]</a><span class="k">def</span> <span class="nf">validate_username</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;If username is available, return true. Else, if taken, return false. Used in registration.&quot;&quot;&quot;</span>
+    <span class="n">un</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;username&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">)</span>
+    <span class="n">cur</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;select id from users where username=?&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">un</span><span class="o">.</span><span class="n">lower</span><span class="p">()])</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">cur</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">jsonify</span><span class="p">(</span><span class="n">available</span><span class="o">=</span><span class="s1">&#39;true&#39;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">jsonify</span><span class="p">(</span><span class="n">available</span><span class="o">=</span><span class="s1">&#39;false&#39;</span><span class="p">)</span></div>
+
+<span class="nd">@app.route</span><span class="p">(</span><span class="s1">&#39;/_validateEmail&#39;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;GET&#39;</span><span class="p">])</span>
+<div class="viewcode-block" id="validate_email"><a class="viewcode-back" href="../../index.html#pegasus.views.validate_email">[docs]</a><span class="k">def</span> <span class="nf">validate_email</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;If email is available, return true. Else, if taken, return false. Used in registration.&quot;&quot;&quot;</span>
+    <span class="n">em</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;email&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">)</span>
+    <span class="n">cur</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;select id from users where email=?&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">em</span><span class="o">.</span><span class="n">lower</span><span class="p">()])</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">cur</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">jsonify</span><span class="p">(</span><span class="n">available</span><span class="o">=</span><span class="s1">&#39;true&#39;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">jsonify</span><span class="p">(</span><span class="n">available</span><span class="o">=</span><span class="s1">&#39;false&#39;</span><span class="p">)</span></div>
+
+
+<span class="c1">## POST</span>
+<span class="nd">@app.route</span><span class="p">(</span><span class="s1">&#39;/_editProfile&#39;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;POST&#39;</span><span class="p">])</span>
+<div class="viewcode-block" id="edit_profile"><a class="viewcode-back" href="../../index.html#pegasus.views.edit_profile">[docs]</a><span class="k">def</span> <span class="nf">edit_profile</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;Edit user info, such as username, email, and name for the logged in user.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;logged_in&#39;</span><span class="p">):</span>
+        <span class="n">abort</span><span class="p">(</span><span class="mi">401</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">error</span> <span class="o">=</span> <span class="s1">&#39;None&#39;</span>
+        <span class="n">new_token</span> <span class="o">=</span> <span class="n">generate_csrf_token</span><span class="p">()</span>
+        <span class="n">cur</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;select name, email, username from users where id=?&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">session</span><span class="p">[</span><span class="s1">&#39;userid&#39;</span><span class="p">]])</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+        <span class="n">old_name</span> <span class="o">=</span> <span class="n">cur</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">old_email</span> <span class="o">=</span> <span class="n">cur</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">old_username</span> <span class="o">=</span> <span class="n">cur</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+        <span class="n">em</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="p">[</span><span class="s1">&#39;email&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="n">un</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="p">[</span><span class="s1">&#39;username&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span>
+        <span class="c1"># first, check availability</span>
+        <span class="n">okay</span> <span class="o">=</span> <span class="bp">True</span>
+        <span class="n">cur1</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;select id from users where email=?&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">em</span><span class="p">])</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+        <span class="n">cur2</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;select id from users where username=?&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">un</span><span class="p">])</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">cur1</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">cur1</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">session</span><span class="p">[</span><span class="s1">&#39;userid&#39;</span><span class="p">]:</span>
+                <span class="n">okay</span> <span class="o">=</span> <span class="bp">False</span>
+                <span class="n">error</span> <span class="o">=</span> <span class="s1">&#39;Email is not available.&#39;</span>
+        <span class="k">if</span> <span class="n">cur2</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">cur2</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">session</span><span class="p">[</span><span class="s1">&#39;userid&#39;</span><span class="p">]:</span>
+                <span class="n">okay</span> <span class="o">=</span> <span class="bp">False</span>
+                <span class="k">if</span> <span class="n">error</span> <span class="o">==</span> <span class="s1">&#39;None&#39;</span><span class="p">:</span>
+                    <span class="n">error</span> <span class="o">=</span> <span class="s1">&#39;Username is not available.&#39;</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">error</span><span class="o">+=</span><span class="s1">&#39;Username is not available.&#39;</span>
+        <span class="k">if</span> <span class="n">okay</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">old_name</span> <span class="o">!=</span> <span class="n">name</span> <span class="ow">or</span> <span class="n">old_email</span> <span class="o">!=</span> <span class="n">em</span> <span class="ow">or</span> <span class="n">old_username</span> <span class="o">!=</span> <span class="n">un</span><span class="p">:</span> <span class="c1"># only proceed if any changes were made</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">old_em</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;select email from users where id=?&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">session</span><span class="p">[</span><span class="s1">&#39;userid&#39;</span><span class="p">]])</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+                    <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;update users set name=?, email=?, username=? where id=?&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">name</span><span class="p">,</span> <span class="n">em</span><span class="p">,</span> <span class="n">un</span><span class="p">,</span> <span class="n">session</span><span class="p">[</span><span class="s1">&#39;userid&#39;</span><span class="p">]])</span>
+                    <span class="n">session</span><span class="p">[</span><span class="s1">&#39;username&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">un</span><span class="p">;</span>
+                    <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;update invites set userEmail=? where userEmail=?&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">em</span><span class="p">,</span> <span class="n">old_em</span><span class="p">])</span>
+                    <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+                <span class="k">except</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">Error</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                    <span class="n">error</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">jsonify</span><span class="p">(</span><span class="n">error</span><span class="o">=</span><span class="n">error</span><span class="p">,</span> <span class="n">token</span><span class="o">=</span><span class="n">new_token</span><span class="p">)</span></div>
+
+<span class="nd">@app.route</span><span class="p">(</span><span class="s1">&#39;/_changePassword&#39;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;POST&#39;</span><span class="p">])</span>
+<div class="viewcode-block" id="change_password"><a class="viewcode-back" href="../../index.html#pegasus.views.change_password">[docs]</a><span class="k">def</span> <span class="nf">change_password</span><span class="p">():</span> 
+    <span class="sd">&quot;&quot;&quot;Edit password for the logged in user. Front-end handles repeating the password twice before submitting.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;logged_in&#39;</span><span class="p">):</span>
+        <span class="n">abort</span><span class="p">(</span><span class="mi">401</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">error</span> <span class="o">=</span> <span class="s1">&#39;None&#39;</span>
+        <span class="n">new_token</span> <span class="o">=</span> <span class="n">generate_csrf_token</span><span class="p">()</span>
+        <span class="n">password</span> <span class="o">=</span> <span class="n">generate_password_hash</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="p">[</span><span class="s1">&#39;password&#39;</span><span class="p">])</span>
+        <span class="n">pw</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;select password from users where id=?&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">session</span><span class="p">[</span><span class="s1">&#39;userid&#39;</span><span class="p">]])</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">check_password_hash</span><span class="p">(</span><span class="n">pw</span><span class="p">,</span> <span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="p">[</span><span class="s1">&#39;old-password&#39;</span><span class="p">]):</span>
+            <span class="n">error</span> <span class="o">=</span> <span class="s1">&#39;Old password you entered is incorrect.&#39;</span>
+        <span class="k">else</span><span class="p">:</span> 
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;update users set password=? where id=?&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">password</span><span class="p">,</span> <span class="n">session</span><span class="p">[</span><span class="s1">&#39;userid&#39;</span><span class="p">]])</span>
+                <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+            <span class="k">except</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">Error</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">error</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">jsonify</span><span class="p">(</span><span class="n">error</span><span class="o">=</span><span class="n">error</span><span class="p">,</span> <span class="n">token</span><span class="o">=</span><span class="n">new_token</span><span class="p">)</span></div>
+
+
+
+<span class="nd">@app.route</span><span class="p">(</span><span class="s1">&#39;/_editInvite&#39;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;POST&#39;</span><span class="p">])</span>
+<div class="viewcode-block" id="edit_invite"><a class="viewcode-back" href="../../index.html#pegasus.views.edit_invite">[docs]</a><span class="k">def</span> <span class="nf">edit_invite</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;Edit the type of invitation/access to invited users. Available only to board owner.&quot;&quot;&quot;</span>
+    <span class="n">bid</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="p">[</span><span class="s1">&#39;boardID&#39;</span><span class="p">])</span>
+    <span class="n">em</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="p">[</span><span class="s1">&#39;email&#39;</span><span class="p">]</span>
+    <span class="n">old_type</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="p">[</span><span class="s1">&#39;inviteType&#39;</span><span class="p">]</span>
+    <span class="n">new_token</span> <span class="o">=</span> <span class="n">generate_csrf_token</span><span class="p">()</span>
+    <span class="n">error</span> <span class="o">=</span> <span class="s1">&#39;None&#39;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;logged_in&#39;</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">is_owner</span><span class="p">(</span><span class="n">bid</span><span class="p">,</span> <span class="n">session</span><span class="p">[</span><span class="s1">&#39;userid&#39;</span><span class="p">]):</span>
+        <span class="n">abort</span><span class="p">(</span><span class="mi">401</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">old_type</span><span class="o">==</span><span class="s1">&#39;edit&#39;</span><span class="p">:</span>
+            <span class="n">new_type</span> <span class="o">=</span> <span class="s1">&#39;view&#39;</span>
+        <span class="k">elif</span> <span class="n">old_type</span><span class="o">==</span><span class="s1">&#39;view&#39;</span><span class="p">:</span>
+            <span class="n">new_type</span> <span class="o">=</span> <span class="s1">&#39;edit&#39;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">abort</span><span class="p">(</span><span class="mi">400</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;update invites set type=? where boardID=? and userEmail=?&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">new_type</span><span class="p">,</span> <span class="n">bid</span><span class="p">,</span> <span class="n">em</span><span class="p">])</span>
+            <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+        <span class="k">except</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">Error</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">error</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">jsonify</span><span class="p">(</span><span class="n">error</span><span class="o">=</span><span class="n">error</span><span class="p">,</span> <span class="n">token</span><span class="o">=</span><span class="n">new_token</span><span class="p">)</span></div>
+
+<span class="c1">## API (GET/POST)</span>
+<span class="nd">@app.route</span><span class="p">(</span><span class="s1">&#39;/api/invite/user/&lt;email&gt;/board/&lt;boardID&gt;&#39;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;POST&#39;</span><span class="p">])</span>
+<div class="viewcode-block" id="invite_user"><a class="viewcode-back" href="../../index.html#pegasus.views.invite_user">[docs]</a><span class="k">def</span> <span class="nf">invite_user</span><span class="p">(</span><span class="n">email</span><span class="p">,</span> <span class="n">boardID</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Invite a user to a board via their email. Available only to the board owner.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;logged_in&#39;</span><span class="p">):</span>
+        <span class="n">abort</span><span class="p">(</span><span class="mi">401</span><span class="p">)</span>
+    <span class="n">em</span> <span class="o">=</span> <span class="n">email</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+    <span class="n">ty</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="c1"># view or edit</span>
+    <span class="n">bid</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">boardID</span><span class="p">)</span>
+    <span class="n">user</span> <span class="o">=</span> <span class="n">session</span><span class="p">[</span><span class="s1">&#39;userid&#39;</span><span class="p">]</span>
+    <span class="n">inviteID</span> <span class="o">=</span> <span class="n">uuid</span><span class="o">.</span><span class="n">uuid4</span><span class="p">()</span><span class="o">.</span><span class="n">hex</span>
+    <span class="n">error</span> <span class="o">=</span> <span class="s1">&#39;None&#39;</span>
+    <span class="n">successful</span><span class="o">=</span><span class="s1">&#39;false&#39;</span>
+    <span class="k">if</span> <span class="n">is_owner</span><span class="p">(</span><span class="n">b_id</span><span class="p">,</span> <span class="n">user</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;insert into invites (id, userEmail, boardID, type) values (?, ?, ?, ?)&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">inviteID</span><span class="p">,</span> <span class="n">em</span><span class="p">,</span> <span class="n">bid</span><span class="p">,</span> <span class="n">ty</span><span class="p">])</span>
+            <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+            <span class="n">successful</span> <span class="o">=</span> <span class="s1">&#39;true&#39;</span>
+        <span class="k">except</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">IntegrityError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">error</span> <span class="o">=</span> <span class="s1">&#39;This email has already been invited to this board.&#39;</span>
+        <span class="k">except</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">Error</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span> <span class="c1"># for debugging</span>
+            <span class="n">error</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="n">new_token</span> <span class="o">=</span> <span class="n">generate_csrf_token</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">jsonify</span><span class="p">(</span><span class="n">successful</span><span class="o">=</span><span class="n">successful</span><span class="p">,</span> <span class="n">error</span><span class="o">=</span><span class="n">error</span><span class="p">,</span> <span class="n">token</span><span class="o">=</span><span class="n">new_token</span><span class="p">)</span></div>
+
+<span class="nd">@app.route</span><span class="p">(</span><span class="s1">&#39;/api/edit/board/&lt;boardID&gt;/title&#39;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;POST&#39;</span><span class="p">])</span>
+<div class="viewcode-block" id="edit_board"><a class="viewcode-back" href="../../index.html#pegasus.views.edit_board">[docs]</a><span class="k">def</span> <span class="nf">edit_board</span><span class="p">(</span><span class="n">boardID</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Edit board title if the user is the owner.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;logged_in&#39;</span><span class="p">):</span>
+        <span class="n">abort</span><span class="p">(</span><span class="mi">401</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span> <span class="c1"># is logged in</span>
+        <span class="n">curBoard</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;select title from boards where id=?&#39;</span><span class="p">,</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">boardID</span><span class="p">)])</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">curBoard</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">abort</span><span class="p">(</span><span class="mi">404</span><span class="p">)</span>
+        <span class="n">error</span> <span class="o">=</span> <span class="s1">&#39;None&#39;</span>
+        <span class="n">new_token</span> <span class="o">=</span> <span class="n">generate_csrf_token</span><span class="p">()</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;update boards set title=? where id=? and creatorID=?&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="p">[</span><span class="s1">&#39;title&#39;</span><span class="p">],</span> <span class="nb">int</span><span class="p">(</span><span class="n">boardID</span><span class="p">),</span> <span class="n">session</span><span class="p">[</span><span class="s1">&#39;userid&#39;</span><span class="p">]])</span>
+            <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+        <span class="k">except</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">Error</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">error</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">jsonify</span><span class="p">(</span><span class="n">error</span><span class="o">=</span><span class="n">error</span><span class="p">,</span> <span class="n">token</span><span class="o">=</span><span class="n">new_token</span><span class="p">)</span> <span class="c1"># and new CSRF token to be used again</span></div>
+
+<span class="nd">@app.route</span><span class="p">(</span><span class="s1">&#39;/api/expire/board/&lt;boardID&gt;&#39;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;POST&#39;</span><span class="p">])</span>
+<div class="viewcode-block" id="mark_done"><a class="viewcode-back" href="../../index.html#pegasus.views.mark_done">[docs]</a><span class="k">def</span> <span class="nf">mark_done</span><span class="p">(</span><span class="n">boardID</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Mark a board as done before the 24 hours are up. Only available to the owner of the board.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;logged_in&#39;</span><span class="p">):</span>
+        <span class="n">abort</span><span class="p">(</span><span class="mi">401</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">error</span> <span class="o">=</span> <span class="s1">&#39;None&#39;</span>
+        <span class="n">new_token</span> <span class="o">=</span> <span class="n">generate_csrf_token</span><span class="p">()</span>
+        <span class="n">done</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        <span class="n">done_at</span> <span class="o">=</span> <span class="n">done</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s1">&#39;%Y-%m-</span><span class="si">%d</span><span class="s1"> %H:%M:%S&#39;</span><span class="p">)</span>
+        <span class="n">bid</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">boardID</span><span class="p">)</span>
+        <span class="n">old_done_at</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;select done_at from boards where id=?&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">bid</span><span class="p">])</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()[</span><span class="mi">0</span><span class="p">],</span> <span class="s1">&#39;%Y-%m-</span><span class="si">%d</span><span class="s1"> %H:%M:%S&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">old_done_at</span> <span class="o">&lt;</span> <span class="n">done</span><span class="p">:</span>
+            <span class="n">abort</span><span class="p">(</span><span class="mi">400</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;update boards set done_at=? where id=? and creatorID=?&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">done_at</span><span class="p">,</span> <span class="n">bid</span><span class="p">,</span> <span class="n">session</span><span class="p">[</span><span class="s1">&#39;userid&#39;</span><span class="p">]])</span>
+            <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+        <span class="k">except</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">Error</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">error</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">jsonify</span><span class="p">(</span><span class="n">error</span><span class="o">=</span><span class="n">error</span><span class="p">,</span> <span class="n">token</span><span class="o">=</span><span class="n">new_token</span><span class="p">)</span></div>
+
+<span class="nd">@app.route</span><span class="p">(</span><span class="s1">&#39;/api/delete/board/&lt;boardID&gt;&#39;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;POST&#39;</span><span class="p">])</span>
+<div class="viewcode-block" id="delete_board"><a class="viewcode-back" href="../../index.html#pegasus.views.delete_board">[docs]</a><span class="k">def</span> <span class="nf">delete_board</span><span class="p">(</span><span class="n">boardID</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Delete board. Only allows it in case the board in question&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;logged_in&#39;</span><span class="p">):</span>
+        <span class="n">abort</span><span class="p">(</span><span class="mi">401</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">error</span> <span class="o">=</span> <span class="s1">&#39;None&#39;</span>
+        <span class="n">new_token</span> <span class="o">=</span> <span class="n">generate_csrf_token</span><span class="p">()</span>
+        <span class="n">bid</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">boardID</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;delete from boards where id=? and creatorID=?&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">bid</span><span class="p">,</span> <span class="n">session</span><span class="p">[</span><span class="s1">&#39;userid&#39;</span><span class="p">]])</span>
+            <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+        <span class="k">except</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">Error</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">error</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span><span class="p">(</span><span class="n">error</span><span class="o">!=</span><span class="s1">&#39;None&#39;</span><span class="p">):</span>
+            <span class="n">flash</span><span class="p">(</span><span class="n">error</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="n">url_for</span><span class="p">(</span><span class="s1">&#39;show_profile&#39;</span><span class="p">))</span></div>
+
+<span class="nd">@app.route</span><span class="p">(</span><span class="s1">&#39;/api/board/&lt;boardID&gt;/components/get&#39;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;GET&#39;</span><span class="p">])</span>
+<div class="viewcode-block" id="get_components"><a class="viewcode-back" href="../../index.html#pegasus.views.get_components">[docs]</a><span class="k">def</span> <span class="nf">get_components</span><span class="p">(</span><span class="n">boardID</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Get all components of a board. This includes:</span>
+<span class="sd">        - Chat, text, and other components along with all their relevant data (date, who, etc).</span>
+<span class="sd">        - State of the board: locked/unlocked.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">bid</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">boardID</span><span class="p">)</span>
+    <span class="n">curBoard</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;select locked_until, locked_by from boards where id=?&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">bid</span><span class="p">])</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">curBoard</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">abort</span><span class="p">(</span><span class="mi">404</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">inv</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;invite&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">inv</span> <span class="o">!=</span> <span class="s1">&#39;-1&#39;</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;logged_in&#39;</span><span class="p">):</span>
+            <span class="n">curInvite</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;select userEmail from invites where id=?&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">inv</span><span class="p">])</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">curInvite</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+                <span class="n">abort</span><span class="p">(</span><span class="mi">401</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">who</span> <span class="o">=</span> <span class="n">curInvite</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;logged_in&#39;</span><span class="p">):</span>
+            <span class="n">auth</span> <span class="o">=</span> <span class="n">is_authorized</span><span class="p">(</span><span class="n">bid</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">auth</span><span class="p">[</span><span class="s1">&#39;access&#39;</span><span class="p">]:</span>
+                <span class="n">abort</span><span class="p">(</span><span class="mi">401</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">who</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">session</span><span class="p">[</span><span class="s1">&#39;userid&#39;</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">abort</span><span class="p">(</span><span class="mi">401</span><span class="p">)</span>
+        <span class="n">lastClientGot</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;lastModified&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
+        <span class="n">lock_until</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">curBoard</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s1">&#39;%Y-%m-</span><span class="si">%d</span><span class="s1"> %H:%M:%S&#39;</span><span class="p">)</span>
+        <span class="n">lock_by</span> <span class="o">=</span> <span class="n">curBoard</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">LOCKED</span> <span class="o">=</span> <span class="bp">False</span>
+        <span class="k">if</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span> <span class="o">&lt;</span> <span class="n">lock_until</span> <span class="ow">and</span> <span class="n">lock_by</span> <span class="o">!=</span> <span class="n">who</span><span class="p">:</span>
+            <span class="n">LOCKED</span> <span class="o">=</span> <span class="bp">True</span>
+        <span class="c1"># get list</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">curList</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;select id, content, userID, userEmail, created_at, last_modified_at, last_modified_by, type, position, deleted from board_content where boardID=? and last_modified_at &gt; ? order by created_at&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">bid</span><span class="p">,</span> <span class="n">lastClientGot</span><span class="p">])</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">curList</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">messages</span> <span class="o">=</span> <span class="p">[</span><span class="nb">dict</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="n">row</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">content</span><span class="o">=</span><span class="n">row</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">userID</span><span class="o">=</span><span class="n">row</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">userEmail</span><span class="o">=</span><span class="n">row</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="n">created_at</span><span class="o">=</span><span class="n">row</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span> <span class="n">last_modified_at</span><span class="o">=</span><span class="n">row</span><span class="p">[</span><span class="mi">5</span><span class="p">],</span> <span class="n">last_modified_by</span><span class="o">=</span><span class="n">row</span><span class="p">[</span><span class="mi">6</span><span class="p">],</span> <span class="nb">type</span><span class="o">=</span><span class="n">row</span><span class="p">[</span><span class="mi">7</span><span class="p">],</span> <span class="n">position</span><span class="o">=</span><span class="n">row</span><span class="p">[</span><span class="mi">8</span><span class="p">],</span> <span class="n">deleted</span><span class="o">=</span><span class="n">row</span><span class="p">[</span><span class="mi">9</span><span class="p">])</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">curList</span><span class="p">]</span>
+                <span class="k">return</span> <span class="n">jsonify</span><span class="p">(</span><span class="n">messages</span><span class="o">=</span><span class="n">messages</span><span class="p">,</span> <span class="n">locked</span><span class="o">=</span><span class="n">LOCKED</span><span class="p">,</span> <span class="n">lockedBy</span><span class="o">=</span><span class="n">lock_by</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">error</span> <span class="o">=</span> <span class="s1">&#39;Nothing new.&#39;</span>
+                <span class="k">return</span> <span class="n">jsonify</span><span class="p">(</span><span class="n">error</span><span class="o">=</span><span class="n">error</span><span class="p">,</span> <span class="n">locked</span><span class="o">=</span><span class="n">LOCKED</span><span class="p">,</span> <span class="n">lockedBy</span><span class="o">=</span><span class="n">lock_by</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">Error</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">error</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">return</span> <span class="n">jsonify</span><span class="p">(</span><span class="n">error</span><span class="o">=</span><span class="n">error</span><span class="p">,</span> <span class="n">locked</span><span class="o">=</span><span class="n">LOCKED</span><span class="p">,</span> <span class="n">lockedBy</span><span class="o">=</span><span class="n">lock_by</span><span class="p">)</span></div>
+
+<span class="nd">@app.route</span><span class="p">(</span><span class="s1">&#39;/api/board/&lt;boardID&gt;/components/post&#39;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;POST&#39;</span><span class="p">])</span>
+<div class="viewcode-block" id="post_components"><a class="viewcode-back" href="../../index.html#pegasus.views.post_components">[docs]</a><span class="k">def</span> <span class="nf">post_components</span><span class="p">(</span><span class="n">boardID</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Post a component to the board. Works for all types.&quot;&quot;&quot;</span>
+    <span class="n">bid</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">boardID</span><span class="p">)</span>
+    <span class="n">new_token</span> <span class="o">=</span> <span class="n">generate_csrf_token</span><span class="p">()</span>
+    <span class="n">msg</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="p">[</span><span class="s1">&#39;message&#39;</span><span class="p">]</span>
+    <span class="n">ty</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="p">[</span><span class="s1">&#39;content-type&#39;</span><span class="p">]</span>
+    <span class="n">position</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="p">[</span><span class="s1">&#39;position&#39;</span><span class="p">]</span>
+    <span class="n">error</span> <span class="o">=</span> <span class="s1">&#39;None&#39;</span>
+    <span class="n">componentID</span> <span class="o">=</span> <span class="bp">None</span>
+    <span class="n">wantEdit</span> <span class="o">=</span> <span class="bp">False</span> <span class="k">if</span> <span class="n">ty</span> <span class="o">==</span> <span class="s1">&#39;chat&#39;</span> <span class="k">else</span> <span class="bp">True</span>
+    <span class="n">curBoard</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;select done_at, locked_until, locked_by from boards where id=?&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">bid</span><span class="p">])</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">curBoard</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">abort</span><span class="p">(</span><span class="mi">404</span><span class="p">)</span>
+    <span class="n">done_at</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">curBoard</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s1">&#39;%Y-%m-</span><span class="si">%d</span><span class="s1"> %H:%M:%S&#39;</span><span class="p">)</span>
+    <span class="n">inv</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="p">[</span><span class="s1">&#39;invite&#39;</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">inv</span> <span class="o">!=</span> <span class="s1">&#39;-1&#39;</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;logged_in&#39;</span><span class="p">):</span>
+        <span class="n">curInvite</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;select type, userEmail from invites where id=? and boardID=?&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">inv</span><span class="p">,</span> <span class="n">bid</span><span class="p">])</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">curInvite</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">abort</span><span class="p">(</span><span class="mi">401</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">who</span> <span class="o">=</span> <span class="n">curInvite</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="k">elif</span> <span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;logged_in&#39;</span><span class="p">):</span>
+        <span class="n">auth</span> <span class="o">=</span> <span class="n">is_authorized</span><span class="p">(</span><span class="n">bid</span><span class="p">,</span> <span class="n">wantToEdit</span><span class="o">=</span><span class="n">wantEdit</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">auth</span><span class="p">[</span><span class="s1">&#39;access&#39;</span><span class="p">]</span> <span class="ow">and</span> <span class="n">auth</span><span class="p">[</span><span class="s1">&#39;accessType&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;edit&#39;</span><span class="p">:</span>
+            <span class="n">abort</span><span class="p">(</span><span class="mi">401</span><span class="p">)</span>
+        <span class="n">who</span> <span class="o">=</span> <span class="n">session</span><span class="p">[</span><span class="s1">&#39;userid&#39;</span><span class="p">]</span>
+    <span class="k">if</span><span class="p">(</span><span class="n">done_at</span> <span class="o">&gt;</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()):</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span><span class="o">&gt;=</span><span class="mi">1</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;logged_in&#39;</span><span class="p">):</span>
+                <span class="k">if</span> <span class="p">(</span><span class="n">ty</span> <span class="o">!=</span> <span class="s1">&#39;chat&#39;</span> <span class="ow">and</span> <span class="n">auth</span><span class="p">[</span><span class="s1">&#39;canEditNow&#39;</span><span class="p">])</span> <span class="ow">or</span> <span class="p">(</span><span class="n">ty</span> <span class="o">==</span> <span class="s1">&#39;chat&#39;</span><span class="p">):</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="n">cursor</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span>
+                        <span class="n">cursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;insert into board_content (boardID, userID, content, type, position, last_modified_at, last_modified_by) values (?, ?, ?, ?, ?, ?, ?)&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">bid</span><span class="p">,</span> <span class="n">who</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">ty</span><span class="p">,</span> <span class="n">position</span><span class="p">,</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">(),</span> <span class="n">who</span><span class="p">])</span>
+                        <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+                        <span class="n">componentID</span> <span class="o">=</span> <span class="n">cursor</span><span class="o">.</span><span class="n">lastrowid</span>
+                        <span class="n">cursor</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+                    <span class="k">except</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">Error</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                        <span class="n">error</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">error</span> <span class="o">=</span> <span class="s1">&#39;This board is locked for edit by another user.&#39;</span>
+            <span class="k">elif</span> <span class="n">inv</span> <span class="o">!=</span> <span class="s1">&#39;-1&#39;</span> <span class="ow">and</span> <span class="p">((</span><span class="n">curInvite</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;edit&#39;</span> <span class="ow">and</span> <span class="n">ty</span> <span class="o">!=</span> <span class="s1">&#39;chat&#39;</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="n">ty</span> <span class="o">==</span> <span class="s1">&#39;chat&#39;</span><span class="p">)):</span>
+                <span class="n">lockedUntil</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">curBoard</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="s1">&#39;%Y-%m-</span><span class="si">%d</span><span class="s1"> %H:%M:%S&#39;</span><span class="p">)</span>
+                <span class="n">lockedBy</span> <span class="o">=</span> <span class="n">curBoard</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+                <span class="n">allowEdit</span> <span class="o">=</span> <span class="bp">False</span>
+                <span class="k">if</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span> <span class="o">&gt;</span> <span class="n">lockedUntil</span> <span class="ow">or</span> <span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span> <span class="o">&lt;</span> <span class="n">lockedUntil</span> <span class="ow">and</span> <span class="n">lockedBy</span> <span class="o">==</span> <span class="n">who</span><span class="p">):</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="n">lock_board</span><span class="p">(</span><span class="n">bid</span><span class="p">,</span> <span class="n">userEmail</span><span class="o">=</span><span class="n">who</span><span class="p">)</span>
+                        <span class="n">allowEdit</span> <span class="o">=</span> <span class="bp">True</span>
+                    <span class="k">except</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">Error</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                        <span class="n">error</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">allowEdit</span><span class="p">:</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="n">cursor</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span>
+                        <span class="n">cursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;insert into board_content (boardID, userEmail, content, type, position, last_modified_at, last_modified_by) values (?, ?, ?, ?, ?, ?, ?)&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">bid</span><span class="p">,</span> <span class="n">who</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">ty</span><span class="p">,</span> <span class="n">position</span><span class="p">,</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">(),</span> <span class="n">who</span><span class="p">])</span>
+                        <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+                        <span class="n">cursor</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+                    <span class="k">except</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">Error</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                        <span class="n">error</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">error</span> <span class="o">=</span> <span class="s1">&#39;This board is locked for edit by another user.&#39;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">error</span> <span class="o">=</span> <span class="s1">&#39;Your priviliges do not allow you to post to this board.&#39;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">error</span> <span class="o">=</span> <span class="s1">&#39;Content too short.&#39;</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">error</span> <span class="o">=</span> <span class="s1">&#39;This board has expired. You cannot make any changes.&#39;</span>
+    <span class="k">return</span> <span class="n">jsonify</span><span class="p">(</span><span class="n">error</span><span class="o">=</span><span class="n">error</span><span class="p">,</span> <span class="n">token</span><span class="o">=</span><span class="n">new_token</span><span class="p">,</span> <span class="n">componentID</span><span class="o">=</span><span class="n">componentID</span><span class="p">)</span></div>
+
+
+<span class="nd">@app.route</span><span class="p">(</span><span class="s1">&#39;/api/user/&lt;userID&gt;&#39;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;GET&#39;</span><span class="p">])</span>
+<div class="viewcode-block" id="get_user"><a class="viewcode-back" href="../../index.html#pegasus.views.get_user">[docs]</a><span class="k">def</span> <span class="nf">get_user</span><span class="p">(</span><span class="n">userID</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Get a user&#39;s username/name based on their ID. Available to everyone.&quot;&quot;&quot;</span>
+    <span class="c1"># no authentication needed, public info. A better app would only provide this info to people who have something in common with the user</span>
+    <span class="c1">## like they share a board. But for now, it&#39;s just public.</span>
+    <span class="n">error</span> <span class="o">=</span> <span class="s1">&#39;None&#39;</span>
+    <span class="n">username</span> <span class="o">=</span> <span class="bp">None</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="bp">None</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">cur</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;select name, username from users where id=?&#39;</span><span class="p">,</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">userID</span><span class="p">)])</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">cur</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">error</span> <span class="o">=</span> <span class="s1">&#39;User not found.&#39;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="n">cur</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">username</span> <span class="o">=</span> <span class="n">cur</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="k">except</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">Error</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span> <span class="c1"># just in case</span>
+        <span class="n">error</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">jsonify</span><span class="p">(</span><span class="n">error</span><span class="o">=</span><span class="n">error</span><span class="p">,</span> <span class="n">username</span><span class="o">=</span><span class="n">username</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span></div>
+
+<span class="nd">@app.route</span><span class="p">(</span><span class="s1">&#39;/api/invited/&lt;boardID&gt;&#39;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;GET&#39;</span><span class="p">])</span>
+<div class="viewcode-block" id="invited_users"><a class="viewcode-back" href="../../index.html#pegasus.views.invited_users">[docs]</a><span class="k">def</span> <span class="nf">invited_users</span><span class="p">(</span><span class="n">boardID</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Get list of invited emails and the type of their invitations. Available to board owner only.&quot;&quot;&quot;</span>
+    <span class="n">error</span> <span class="o">=</span> <span class="s1">&#39;None&#39;</span>
+    <span class="n">invited</span> <span class="o">=</span> <span class="s1">&#39;None&#39;</span>
+    <span class="n">new_token</span> <span class="o">=</span> <span class="n">generate_csrf_token</span><span class="p">()</span> <span class="c1"># for the POST forms generated on the fly</span>
+    <span class="n">bid</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">boardID</span><span class="p">)</span>
+    <span class="n">curBoard</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;select title from boards where id=?&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">bid</span><span class="p">])</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">curBoard</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">abort</span><span class="p">(</span><span class="mi">404</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;logged_in&#39;</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">is_owner</span><span class="p">(</span><span class="n">bid</span><span class="p">,</span> <span class="n">session</span><span class="p">[</span><span class="s1">&#39;userid&#39;</span><span class="p">]):</span>
+        <span class="n">abort</span><span class="p">(</span><span class="mi">401</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">cur</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;select userEmail, type from invites where boardID=? order by invite_date&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">bid</span><span class="p">])</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">cur</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">error</span> <span class="o">=</span> <span class="s1">&#39;No one has been invited to this board yet.&#39;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">invited</span> <span class="o">=</span> <span class="p">[</span><span class="nb">dict</span><span class="p">(</span><span class="n">userEmail</span><span class="o">=</span><span class="n">row</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="nb">type</span><span class="o">=</span><span class="n">row</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">cur</span><span class="p">]</span>
+        <span class="k">except</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">Error</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">error</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">jsonify</span><span class="p">(</span><span class="n">error</span><span class="o">=</span><span class="n">error</span><span class="p">,</span> <span class="n">invited</span><span class="o">=</span><span class="n">invited</span><span class="p">,</span> <span class="n">token</span><span class="o">=</span><span class="n">new_token</span><span class="p">)</span></div>
+
+<span class="nd">@app.route</span><span class="p">(</span><span class="s1">&#39;/api/edit/board/&lt;boardID&gt;/component/&lt;componentID&gt;&#39;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;POST&#39;</span><span class="p">])</span>
+<div class="viewcode-block" id="edit_component"><a class="viewcode-back" href="../../index.html#pegasus.views.edit_component">[docs]</a><span class="k">def</span> <span class="nf">edit_component</span><span class="p">(</span><span class="n">componentID</span><span class="p">,</span> <span class="n">boardID</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Edit a component&#39;s content (the text, etc). Available to anyone with edit/owner access to the board.&quot;&quot;&quot;</span>
+    <span class="n">error</span> <span class="o">=</span> <span class="s1">&#39;None&#39;</span>
+    <span class="n">new_token</span> <span class="o">=</span> <span class="n">generate_csrf_token</span><span class="p">()</span>
+    <span class="n">bid</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">boardID</span><span class="p">)</span>
+    <span class="n">cid</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">componentID</span><span class="p">)</span>
+    <span class="n">inv</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="p">[</span><span class="s1">&#39;invite&#39;</span><span class="p">]</span>
+    <span class="n">curBoard</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;select locked_until, locked_by from boards where id=?&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">bid</span><span class="p">])</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">curBoard</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">abort</span><span class="p">(</span><span class="mi">404</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">inv</span> <span class="o">!=</span> <span class="s1">&#39;-1&#39;</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;logged_in&#39;</span><span class="p">):</span> <span class="c1"># don&#39;t care if there&#39;s an invite string as long as they&#39;re logged in</span>
+        <span class="n">cur</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;select type, userEmail from invites where id=? and boardID=?&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">inv</span><span class="p">,</span> <span class="n">bid</span><span class="p">])</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">cur</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">abort</span><span class="p">(</span><span class="mi">401</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">cur</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="s1">&#39;edit&#39;</span><span class="p">:</span>
+            <span class="n">abort</span><span class="p">(</span><span class="mi">401</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">mod</span> <span class="o">=</span> <span class="n">cur</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">lockedUntil</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">curBoard</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s1">&#39;%Y-%m-</span><span class="si">%d</span><span class="s1"> %H:%M:%S&#39;</span><span class="p">)</span>
+            <span class="n">lockedBy</span> <span class="o">=</span> <span class="n">curBoard</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="k">if</span><span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span> <span class="o">&gt;</span> <span class="n">lockedUntil</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span> <span class="o">&lt;</span> <span class="n">lockedUntil</span> <span class="ow">and</span> <span class="n">lockedBy</span> <span class="o">==</span> <span class="n">mod</span><span class="p">):</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">lock_board</span><span class="p">(</span><span class="n">bid</span><span class="p">,</span><span class="n">userEmail</span><span class="o">=</span><span class="n">mod</span><span class="p">)</span>
+                    <span class="n">allowEdit</span> <span class="o">=</span> <span class="bp">True</span>
+                <span class="k">except</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">Error</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                    <span class="n">error</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">elif</span> <span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;logged_in&#39;</span><span class="p">):</span>
+        <span class="n">auth</span> <span class="o">=</span> <span class="n">is_authorized</span><span class="p">(</span><span class="n">bid</span><span class="p">,</span> <span class="n">wantToEdit</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">auth</span><span class="p">[</span><span class="s1">&#39;access&#39;</span><span class="p">]</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">auth</span><span class="p">[</span><span class="s1">&#39;accessType&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;edit&#39;</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">auth</span><span class="p">[</span><span class="s1">&#39;canEditNow&#39;</span><span class="p">]:</span>
+            <span class="n">abort</span><span class="p">(</span><span class="mi">401</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">allowEdit</span> <span class="o">=</span> <span class="bp">True</span>
+            <span class="n">mod</span> <span class="o">=</span> <span class="n">session</span><span class="p">[</span><span class="s1">&#39;userid&#39;</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">abort</span><span class="p">(</span><span class="mi">401</span><span class="p">)</span>
+    <span class="c1"># if we get this far, user has editing access</span>
+    <span class="k">if</span> <span class="n">allowEdit</span><span class="p">:</span>
+        <span class="n">ty</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="p">[</span><span class="s1">&#39;content-type&#39;</span><span class="p">]</span>
+        <span class="n">nowDate</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s1">&#39;%Y-%m-</span><span class="si">%d</span><span class="s1"> %H:%M:%S&#39;</span><span class="p">)</span>
+        <span class="n">curDone</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;select done_at from boards where id=?&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">bid</span><span class="p">])</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+        <span class="n">done_at</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">curDone</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s1">&#39;%Y-%m-</span><span class="si">%d</span><span class="s1"> %H:%M:%S&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">done_at</span> <span class="o">&gt;</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">():</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="p">[</span><span class="s1">&#39;hasMessages&#39;</span><span class="p">]</span><span class="o">==</span><span class="s1">&#39;true&#39;</span><span class="p">:</span>
+                    <span class="n">msg</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="p">[</span><span class="s1">&#39;message&#39;</span><span class="p">]</span>
+                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span><span class="o">&gt;=</span><span class="mi">1</span><span class="p">:</span>
+                        <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;update board_content set content=?, last_modified_at=?, last_modified_by=? where id=? and boardID=? and type=? and deleted=?&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">msg</span><span class="p">,</span> <span class="n">nowDate</span><span class="p">,</span> <span class="n">mod</span><span class="p">,</span> <span class="n">cid</span><span class="p">,</span> <span class="n">bid</span><span class="p">,</span> <span class="n">ty</span><span class="p">,</span> <span class="s1">&#39;N&#39;</span><span class="p">])</span>
+                        <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">error</span> <span class="o">=</span> <span class="s1">&#39;Content too short.&#39;</span>
+                <span class="k">else</span><span class="p">:</span> <span class="c1"># refreshing position only</span>
+                    <span class="n">pos</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="p">[</span><span class="s1">&#39;position&#39;</span><span class="p">]</span>
+                    <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;update board_content set position=?, last_modified_at=?, last_modified_by=? where id=? and boardID=? and type=? and deleted=?&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">pos</span><span class="p">,</span> <span class="n">nowDate</span><span class="p">,</span> <span class="n">mod</span><span class="p">,</span> <span class="n">cid</span><span class="p">,</span> <span class="n">bid</span><span class="p">,</span> <span class="n">ty</span><span class="p">,</span> <span class="s1">&#39;N&#39;</span><span class="p">])</span>
+                    <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+            <span class="k">except</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">Error</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">error</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">error</span> <span class="o">=</span> <span class="s1">&#39;This board has expired. You cannot make any more changes.&#39;</span>
+    <span class="k">else</span><span class="p">:</span> 
+        <span class="n">error</span> <span class="o">=</span> <span class="s1">&#39;This board is locked for edit by another user.&#39;</span>
+    <span class="k">return</span> <span class="n">jsonify</span><span class="p">(</span><span class="n">error</span><span class="o">=</span><span class="n">error</span><span class="p">,</span> <span class="n">token</span><span class="o">=</span><span class="n">new_token</span><span class="p">)</span></div>
+
+<span class="nd">@app.route</span><span class="p">(</span><span class="s1">&#39;/api/delete/board/&lt;boardID&gt;/component/&lt;componentID&gt;&#39;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;POST&#39;</span><span class="p">])</span>
+<div class="viewcode-block" id="delete_component"><a class="viewcode-back" href="../../index.html#pegasus.views.delete_component">[docs]</a><span class="k">def</span> <span class="nf">delete_component</span><span class="p">(</span><span class="n">boardID</span><span class="p">,</span> <span class="n">componentID</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Delete a component. Separated from editing for readability and possible future modification of the edit function. Also available to everyone with edit/owner access.&quot;&quot;&quot;</span>
+    <span class="n">error</span> <span class="o">=</span> <span class="s1">&#39;None&#39;</span>
+    <span class="n">new_token</span> <span class="o">=</span> <span class="n">generate_csrf_token</span><span class="p">()</span>
+    <span class="n">bid</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">boardID</span><span class="p">)</span>
+    <span class="n">cid</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">componentID</span><span class="p">)</span>
+    <span class="n">inv</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="p">[</span><span class="s1">&#39;invite&#39;</span><span class="p">]</span>
+    <span class="n">curBoard</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;select locked_until, locked_by from boards where id=?&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">bid</span><span class="p">])</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">curBoard</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">abort</span><span class="p">(</span><span class="mi">404</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">inv</span> <span class="o">!=</span> <span class="s1">&#39;-1&#39;</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;logged_in&#39;</span><span class="p">):</span> <span class="c1"># don&#39;t care if there&#39;s an invite string as long as they&#39;re logged in</span>
+        <span class="n">cur</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;select type, userEmail from invites where id=? and boardID=?&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">inv</span><span class="p">,</span> <span class="n">bid</span><span class="p">])</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">cur</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">abort</span><span class="p">(</span><span class="mi">401</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">cur</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="s1">&#39;edit&#39;</span><span class="p">:</span>
+            <span class="n">abort</span><span class="p">(</span><span class="mi">401</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">mod</span> <span class="o">=</span> <span class="n">cur</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">lockedUntil</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">curBoard</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s1">&#39;%Y-%m-</span><span class="si">%d</span><span class="s1"> %H:%M:%S&#39;</span><span class="p">)</span>
+            <span class="n">lockedBy</span> <span class="o">=</span> <span class="n">curBoard</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="k">if</span><span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span> <span class="o">&gt;</span> <span class="n">lockedUntil</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span> <span class="o">&lt;</span> <span class="n">lockedUntil</span> <span class="ow">and</span> <span class="n">lockedBy</span> <span class="o">==</span> <span class="n">mod</span><span class="p">):</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">lock_board</span><span class="p">(</span><span class="n">bid</span><span class="p">,</span><span class="n">userEmail</span><span class="o">=</span><span class="n">mod</span><span class="p">)</span>
+                    <span class="n">allowDelete</span> <span class="o">=</span> <span class="bp">True</span>
+                <span class="k">except</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">Error</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                    <span class="n">error</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">elif</span> <span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;logged_in&#39;</span><span class="p">):</span>
+        <span class="n">auth</span> <span class="o">=</span> <span class="n">is_authorized</span><span class="p">(</span><span class="n">bid</span><span class="p">,</span> <span class="n">wantToEdit</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">auth</span><span class="p">[</span><span class="s1">&#39;access&#39;</span><span class="p">]</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">auth</span><span class="p">[</span><span class="s1">&#39;accessType&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;edit&#39;</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">auth</span><span class="p">[</span><span class="s1">&#39;canEditNow&#39;</span><span class="p">]:</span>
+            <span class="n">abort</span><span class="p">(</span><span class="mi">401</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">allowDelete</span> <span class="o">=</span> <span class="bp">True</span>
+            <span class="n">mod</span> <span class="o">=</span> <span class="n">session</span><span class="p">[</span><span class="s1">&#39;userid&#39;</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">abort</span><span class="p">(</span><span class="mi">401</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">allowDelete</span><span class="p">:</span>
+        <span class="n">nowDate</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s1">&#39;%Y-%m-</span><span class="si">%d</span><span class="s1"> %H:%M:%S&#39;</span><span class="p">)</span>
+        <span class="n">curDone</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;select done_at from boards where id=?&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">bid</span><span class="p">])</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+        <span class="n">done_at</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">curDone</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s1">&#39;%Y-%m-</span><span class="si">%d</span><span class="s1"> %H:%M:%S&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">done_at</span> <span class="o">&gt;</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">():</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;update board_content set deleted=?, last_modified_at=?, last_modified_by=? where id=? and boardID=? and type!=?&#39;</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;Y&#39;</span><span class="p">,</span> <span class="n">nowDate</span><span class="p">,</span> <span class="n">mod</span><span class="p">,</span> <span class="n">cid</span><span class="p">,</span> <span class="n">bid</span><span class="p">,</span> <span class="s1">&#39;chat&#39;</span><span class="p">])</span>
+                <span class="n">g</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+            <span class="k">except</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">Error</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">error</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">error</span> <span class="o">=</span> <span class="s1">&#39;This board has expired. You cannot make any more changes.&#39;</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">error</span> <span class="o">=</span> <span class="s1">&#39;This board is locked for edit by another user.&#39;</span>
+    <span class="k">return</span> <span class="n">jsonify</span><span class="p">(</span><span class="n">error</span><span class="o">=</span><span class="n">error</span><span class="p">,</span> <span class="n">token</span><span class="o">=</span><span class="n">new_token</span><span class="p">)</span></div>
+
+
+
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  <li><a href="../pegasus.html">pegasus</a><ul>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, Mariam Maarouf.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.4.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.8</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,4 +1,9 @@
-"""How to handle common HTTP errors."""
+"""
+Error handlers
+---------------
+How to handle common HTTP errors.
+
+"""
 from pegasus import app
 from flask import render_template
 

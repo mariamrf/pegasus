@@ -1,0 +1,461 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Docs &mdash; Pegasus 0.1.0 documentation</title>
+    
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '0.1.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="Pegasus 0.1.0 documentation" href="#" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="docs">
+<h1>Docs<a class="headerlink" href="#docs" title="Permalink to this headline">¶</a></h1>
+<div class="toctree-wrapper compound">
+<ul class="simple">
+</ul>
+</div>
+<span class="target" id="module-pegasus"></span><div class="section" id="pegasus">
+<h2>Pegasus<a class="headerlink" href="#pegasus" title="Permalink to this headline">¶</a></h2>
+<p>A whiteboard collaboration tool built with Flask</p>
+<dl class="docutils">
+<dt>Files:</dt>
+<dd><dl class="first last docutils">
+<dt>The backend is divided into 3 main files, other than the database schema:</dt>
+<dd><ul class="first simple">
+<li>__init__.py: glues everything together; the configuration, the db connection,</li>
+</ul>
+<p class="last">the initialization of the app, and the rest of the necessary (sub-)modules.
+- views.py: most of the business logic, aside from error handlers.
+- errorhandlers.py: ...the error handlers.</p>
+</dd>
+<dt>The frontend, on the other hand, is divided into 3 main folders, each with several files:</dt>
+<dd><ul class="first last">
+<li><p class="first">templates: all the html/Jinja2 templates.</p>
+</li>
+<li><dl class="first docutils">
+<dt>static:</dt>
+<dd><p class="first last">= css: all the stylesheets
+= js: all the external scripts</p>
+</dd>
+</dl>
+</li>
+</ul>
+</dd>
+</dl>
+</dd>
+<dt>Purpose &amp; Functionality:</dt>
+<dd><dl class="first last docutils">
+<dt>General:</dt>
+<dd>The aim of this project is to create an easy, lightweight, realtime whiteboard to share/demonstrate ideas 
+in the form of components (for example: text, images, code, etc) that can be pieced together and edited
+by several people in a live session, and exported at any time.
+At this point in time, the only component available is text, along with the sidebar chat (which is available to everyone, edit privileges or not).
+The plan is to add components, and features (like exporting the board as text instead of image), gradually, until the project reaches its initial 
+purpose (stated above).</dd>
+<dt>Use case:</dt>
+<dd>A user who wishes to create a board registers an account, and proceeds to create it. Once created, they can invite others
+by email either to view the board, or to co-edit it. Invited persons can either directly access the board through their invite
+link, or register using the same email they&#8217;ve been invited with and access the board from their account. 
+The board lasts 24 hours by default, but can be marked as done/expire sooner if the owner marks it as done.
+Once expired, the final form of the board (and the sidebar chat) remain for everyone involved in the board to view or export. 
+Only the owner can delete the board, edit it, and invite people.
+Only signed in, non-owner invited users can remove themselves from the board entirely.</dd>
+</dl>
+</dd>
+</dl>
+<dl class="function">
+<dt id="pegasus.before_request">
+<code class="descclassname">pegasus.</code><code class="descname">before_request</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus.html#before_request"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.before_request" title="Permalink to this definition">¶</a></dt>
+<dd><p>Before database requests, connect, and turn on foreign keys.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pegasus.connect_db">
+<code class="descclassname">pegasus.</code><code class="descname">connect_db</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus.html#connect_db"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.connect_db" title="Permalink to this definition">¶</a></dt>
+<dd><p>Connect to the SQLite database.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pegasus.csrf_protect">
+<code class="descclassname">pegasus.</code><code class="descname">csrf_protect</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus.html#csrf_protect"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.csrf_protect" title="Permalink to this definition">¶</a></dt>
+<dd><p>Before database requests, in case of POST requests, check for the CSRF-protection token in the user&#8217;s session.
+If present, pop (remove from session and get its value) then compare to the token submitted in the form.
+If there&#8217;s no token or the token is not equal to the one from the form, abort the request.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pegasus.init_db">
+<code class="descclassname">pegasus.</code><code class="descname">init_db</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus.html#init_db"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.init_db" title="Permalink to this definition">¶</a></dt>
+<dd><p>Initialize the SQLite database. Used in init_db.py.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="pegasus.jsglue">
+<code class="descclassname">pegasus.</code><code class="descname">jsglue</code><em class="property"> = &lt;flask_jsglue.JSGlue object&gt;</em><a class="headerlink" href="#pegasus.jsglue" title="Permalink to this definition">¶</a></dt>
+<dd><p>JSGlue is what provides client-side js with Flask&#8217;s url_for functionality without having to render the links via Jinja2</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pegasus.teardown_request">
+<code class="descclassname">pegasus.</code><code class="descname">teardown_request</code><span class="sig-paren">(</span><em>exception</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus.html#teardown_request"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.teardown_request" title="Permalink to this definition">¶</a></dt>
+<dd><p>If there&#8217;s a database connection, close it.</p>
+</dd></dl>
+
+</div>
+<span class="target" id="module-pegasus.errorhandlers"></span><div class="section" id="error-handlers">
+<h2>Error handlers<a class="headerlink" href="#error-handlers" title="Permalink to this headline">¶</a></h2>
+<p>How to handle common HTTP errors.</p>
+<dl class="function">
+<dt id="pegasus.errorhandlers.bad_request">
+<code class="descclassname">pegasus.errorhandlers.</code><code class="descname">bad_request</code><span class="sig-paren">(</span><em>e</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/errorhandlers.html#bad_request"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.errorhandlers.bad_request" title="Permalink to this definition">¶</a></dt>
+<dd><p>Render error template with the message: Bad Request and no details.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pegasus.errorhandlers.forbidden">
+<code class="descclassname">pegasus.errorhandlers.</code><code class="descname">forbidden</code><span class="sig-paren">(</span><em>e</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/errorhandlers.html#forbidden"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.errorhandlers.forbidden" title="Permalink to this definition">¶</a></dt>
+<dd><p>Render error template with the message: Forbidden and no details.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pegasus.errorhandlers.gone">
+<code class="descclassname">pegasus.errorhandlers.</code><code class="descname">gone</code><span class="sig-paren">(</span><em>e</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/errorhandlers.html#gone"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.errorhandlers.gone" title="Permalink to this definition">¶</a></dt>
+<dd><p>Render error template with the message: Page Gone and no details.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pegasus.errorhandlers.internal_error">
+<code class="descclassname">pegasus.errorhandlers.</code><code class="descname">internal_error</code><span class="sig-paren">(</span><em>e</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/errorhandlers.html#internal_error"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.errorhandlers.internal_error" title="Permalink to this definition">¶</a></dt>
+<dd><p>Render error template with the message: Internal Server Error and no details.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pegasus.errorhandlers.not_found">
+<code class="descclassname">pegasus.errorhandlers.</code><code class="descname">not_found</code><span class="sig-paren">(</span><em>e</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/errorhandlers.html#not_found"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.errorhandlers.not_found" title="Permalink to this definition">¶</a></dt>
+<dd><p>Render error template with the message: Page Not Found and details.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pegasus.errorhandlers.render_error">
+<code class="descclassname">pegasus.errorhandlers.</code><code class="descname">render_error</code><span class="sig-paren">(</span><em>code</em>, <em>msg</em>, <em>det='Oops..'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/errorhandlers.html#render_error"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.errorhandlers.render_error" title="Permalink to this definition">¶</a></dt>
+<dd><p>Render template with variables appropriate to the error provided.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pegasus.errorhandlers.unauthorized">
+<code class="descclassname">pegasus.errorhandlers.</code><code class="descname">unauthorized</code><span class="sig-paren">(</span><em>e</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/errorhandlers.html#unauthorized"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.errorhandlers.unauthorized" title="Permalink to this definition">¶</a></dt>
+<dd><p>Render error template with the message: Unauthorized and details.</p>
+</dd></dl>
+
+</div>
+<span class="target" id="module-pegasus.views"></span><div class="section" id="views">
+<h2>Views<a class="headerlink" href="#views" title="Permalink to this headline">¶</a></h2>
+<dl class="docutils">
+<dt>General:</dt>
+<dd>This file contains all the business logic related to the app &#8216;views&#8217;/URLs and how the server interacts
+with the database.
+Because it&#8217;s a simple enough app, for now, queries are directly written instead of being processed by something like SQLAlchemy.
+All AJAX POST functions return a new CSRF-protection token as the token is per request, not per session.</dd>
+<dt>Division:</dt>
+<dd>1 - Function definitions.
+2 - Basic/rendered views.
+3 - API for AJAX requests.</dd>
+<dt>Database:</dt>
+<dd><dl class="first last docutils">
+<dt>In order for the following to make sense, here&#8217;s the database schema/logic:</dt>
+<dd><p class="first">&gt; TABLE NAME    : COLUMN_1(DESCRIPTION OF COLUMN optional), COLUMN_2(DESCRIPTION OF COLUMN optional),...
+&#8212;&#8212;&#8212;&#8212;-    &#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;-
+&gt; USERS         : ID, Name (optional), Username, Email, Join_Date (defaults to date of creation of row).</p>
+<dl class="docutils">
+<dt>&gt; BOARDS</dt>
+ <span class="classifier-delimiter">:</span> <span class="classifier">ID, Title, CreatorID, Created_at (defaults to date of creation), Done_at (Created_at + 24hrs at creation),</span><dd>Locked_until (Locks are placed when someone edits the board and last 5 seconds to prevent editing the same thing at the same time by someone else.
+This column defaults to date of creation and is changed later), Locked_by (Who, in terms of userID or email, was the last to lock the board).</dd>
+<dt>&gt; BOARD_CONTENT</dt>
+ <span class="classifier-delimiter">:</span> <span class="classifier">ID, BoardID, UserEmail (optional, in case an invited but not signed in user creates a component instance), UserID (optional, in case user is signed in),</span><dd>Created_at, Last_modified_at, Last_modified_by, position (optional, for components whose positions matter, like text),
+Deleted (boolean, &#8216;N&#8217; or &#8216;Y&#8217;).</dd>
+</dl>
+<p class="last">&gt; INVITES       : ID (UUID instead of auto-incrementing integer), BoardID, UserEmail, Invite_date, Type (view or edit).</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<dl class="function">
+<dt id="pegasus.views.change_password">
+<code class="descclassname">pegasus.views.</code><code class="descname">change_password</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/views.html#change_password"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.views.change_password" title="Permalink to this definition">¶</a></dt>
+<dd><p>Edit password for the logged in user. Front-end handles repeating the password twice before submitting.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pegasus.views.create_board">
+<code class="descclassname">pegasus.views.</code><code class="descname">create_board</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/views.html#create_board"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.views.create_board" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a new board.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pegasus.views.delete_board">
+<code class="descclassname">pegasus.views.</code><code class="descname">delete_board</code><span class="sig-paren">(</span><em>boardID</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/views.html#delete_board"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.views.delete_board" title="Permalink to this definition">¶</a></dt>
+<dd><p>Delete board. Only allows it in case the board in question</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pegasus.views.delete_component">
+<code class="descclassname">pegasus.views.</code><code class="descname">delete_component</code><span class="sig-paren">(</span><em>boardID</em>, <em>componentID</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/views.html#delete_component"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.views.delete_component" title="Permalink to this definition">¶</a></dt>
+<dd><p>Delete a component. Separated from editing for readability and possible future modification of the edit function. Also available to everyone with edit/owner access.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pegasus.views.edit_board">
+<code class="descclassname">pegasus.views.</code><code class="descname">edit_board</code><span class="sig-paren">(</span><em>boardID</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/views.html#edit_board"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.views.edit_board" title="Permalink to this definition">¶</a></dt>
+<dd><p>Edit board title if the user is the owner.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pegasus.views.edit_component">
+<code class="descclassname">pegasus.views.</code><code class="descname">edit_component</code><span class="sig-paren">(</span><em>componentID</em>, <em>boardID</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/views.html#edit_component"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.views.edit_component" title="Permalink to this definition">¶</a></dt>
+<dd><p>Edit a component&#8217;s content (the text, etc). Available to anyone with edit/owner access to the board.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pegasus.views.edit_invite">
+<code class="descclassname">pegasus.views.</code><code class="descname">edit_invite</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/views.html#edit_invite"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.views.edit_invite" title="Permalink to this definition">¶</a></dt>
+<dd><p>Edit the type of invitation/access to invited users. Available only to board owner.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pegasus.views.edit_profile">
+<code class="descclassname">pegasus.views.</code><code class="descname">edit_profile</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/views.html#edit_profile"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.views.edit_profile" title="Permalink to this definition">¶</a></dt>
+<dd><p>Edit user info, such as username, email, and name for the logged in user.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pegasus.views.generate_csrf_token">
+<code class="descclassname">pegasus.views.</code><code class="descname">generate_csrf_token</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/views.html#generate_csrf_token"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.views.generate_csrf_token" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a CSRF-protection token if one doesn&#8217;t already exist in the user&#8217;s session and put it there.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pegasus.views.get_components">
+<code class="descclassname">pegasus.views.</code><code class="descname">get_components</code><span class="sig-paren">(</span><em>boardID</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/views.html#get_components"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.views.get_components" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get all components of a board. This includes:
+- Chat, text, and other components along with all their relevant data (date, who, etc).
+- State of the board: locked/unlocked.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pegasus.views.get_random_string">
+<code class="descclassname">pegasus.views.</code><code class="descname">get_random_string</code><span class="sig-paren">(</span><em>length=32</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/views.html#get_random_string"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.views.get_random_string" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate a random string of length 32, used in <cite>generate_csrf_token()</cite></p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pegasus.views.get_user">
+<code class="descclassname">pegasus.views.</code><code class="descname">get_user</code><span class="sig-paren">(</span><em>userID</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/views.html#get_user"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.views.get_user" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get a user&#8217;s username/name based on their ID. Available to everyone.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pegasus.views.index">
+<code class="descclassname">pegasus.views.</code><code class="descname">index</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/views.html#index"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.views.index" title="Permalink to this definition">¶</a></dt>
+<dd><p>Helpers for the index page.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pegasus.views.invite_user">
+<code class="descclassname">pegasus.views.</code><code class="descname">invite_user</code><span class="sig-paren">(</span><em>email</em>, <em>boardID</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/views.html#invite_user"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.views.invite_user" title="Permalink to this definition">¶</a></dt>
+<dd><p>Invite a user to a board via their email. Available only to the board owner.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pegasus.views.invited_users">
+<code class="descclassname">pegasus.views.</code><code class="descname">invited_users</code><span class="sig-paren">(</span><em>boardID</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/views.html#invited_users"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.views.invited_users" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get list of invited emails and the type of their invitations. Available to board owner only.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pegasus.views.is_authorized">
+<code class="descclassname">pegasus.views.</code><code class="descname">is_authorized</code><span class="sig-paren">(</span><em>boardID</em>, <em>wantToEdit=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/views.html#is_authorized"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.views.is_authorized" title="Permalink to this definition">¶</a></dt>
+<dd><p>Check if a certain signed in user (who by default doesn&#8217;t want to edit the board) is authorized to access it, 
+and if yes, what&#8217;s the extent of their access? View/Edit/Owner.
+If edit/owner, can they edit now? (if the board is not locked, this function will lock it for them).
+Returns a hash that includes access (boolean), isOwner (boolean), canEditNow (boolean), and accessType (str)</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pegasus.views.is_owner">
+<code class="descclassname">pegasus.views.</code><code class="descname">is_owner</code><span class="sig-paren">(</span><em>boardID</em>, <em>userID</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/views.html#is_owner"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.views.is_owner" title="Permalink to this definition">¶</a></dt>
+<dd><p>Check if a user is the owner of a certain board.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pegasus.views.lock_board">
+<code class="descclassname">pegasus.views.</code><code class="descname">lock_board</code><span class="sig-paren">(</span><em>boardID</em>, <em>userID=None</em>, <em>userEmail=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/views.html#lock_board"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.views.lock_board" title="Permalink to this definition">¶</a></dt>
+<dd><p>Called after making sure the board isn&#8217;t currently locked and the user has editing access.
+Any <a href="#id1"><span class="problematic" id="id2">`</span></a>sqlite3.Error`s handled in calling function.
+Lock the board for 5 seconds.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pegasus.views.login">
+<code class="descclassname">pegasus.views.</code><code class="descname">login</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/views.html#login"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.views.login" title="Permalink to this definition">¶</a></dt>
+<dd><p>Attempt login. If credentials check out, go to index. If not, render login template with error.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pegasus.views.login_user">
+<code class="descclassname">pegasus.views.</code><code class="descname">login_user</code><span class="sig-paren">(</span><em>username</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/views.html#login_user"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.views.login_user" title="Permalink to this definition">¶</a></dt>
+<dd><p>Login user using their username. Put username and userid (find in database) in their respective sessions.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pegasus.views.logout">
+<code class="descclassname">pegasus.views.</code><code class="descname">logout</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/views.html#logout"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.views.logout" title="Permalink to this definition">¶</a></dt>
+<dd><p>Logout currently logged in user and redirect to home.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pegasus.views.mark_done">
+<code class="descclassname">pegasus.views.</code><code class="descname">mark_done</code><span class="sig-paren">(</span><em>boardID</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/views.html#mark_done"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.views.mark_done" title="Permalink to this definition">¶</a></dt>
+<dd><p>Mark a board as done before the 24 hours are up. Only available to the owner of the board.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pegasus.views.post_components">
+<code class="descclassname">pegasus.views.</code><code class="descname">post_components</code><span class="sig-paren">(</span><em>boardID</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/views.html#post_components"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.views.post_components" title="Permalink to this definition">¶</a></dt>
+<dd><p>Post a component to the board. Works for all types.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pegasus.views.register_user">
+<code class="descclassname">pegasus.views.</code><code class="descname">register_user</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/views.html#register_user"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.views.register_user" title="Permalink to this definition">¶</a></dt>
+<dd><p>If not logged in and POST, register new user and go to index. If an error occurs, render the same register template again but with an error.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pegasus.views.remove_self">
+<code class="descclassname">pegasus.views.</code><code class="descname">remove_self</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/views.html#remove_self"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.views.remove_self" title="Permalink to this definition">¶</a></dt>
+<dd><p>Removes logged in user, who is not the owner of a board, from a certain board they&#8217;d been invited to.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pegasus.views.show_board">
+<code class="descclassname">pegasus.views.</code><code class="descname">show_board</code><span class="sig-paren">(</span><em>boardID</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/views.html#show_board"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.views.show_board" title="Permalink to this definition">¶</a></dt>
+<dd><p>Show board with a specified <cite>boardID</cite>.</p>
+<dl class="docutils">
+<dt>Hierarchy of errors:</dt>
+<dd>1 - 404 : board not found.
+2 - 401 : not authorized. Person trying to view the board is not logged in with access to this board or does not have a (valid) invite code.</dd>
+</dl>
+<p>Renders the page (initially) according to the access type of the user (owner, edit, view).</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pegasus.views.show_profile">
+<code class="descclassname">pegasus.views.</code><code class="descname">show_profile</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/views.html#show_profile"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.views.show_profile" title="Permalink to this definition">¶</a></dt>
+<dd><p>Render profile for logged in user.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pegasus.views.validate_email">
+<code class="descclassname">pegasus.views.</code><code class="descname">validate_email</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/views.html#validate_email"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.views.validate_email" title="Permalink to this definition">¶</a></dt>
+<dd><p>If email is available, return true. Else, if taken, return false. Used in registration.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pegasus.views.validate_username">
+<code class="descclassname">pegasus.views.</code><code class="descname">validate_username</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pegasus/views.html#validate_username"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pegasus.views.validate_username" title="Permalink to this definition">¶</a></dt>
+<dd><p>If username is available, return true. Else, if taken, return false. Used in registration.</p>
+</dd></dl>
+
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="#">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Docs</a><ul>
+<li><a class="reference internal" href="#pegasus">Pegasus</a></li>
+<li><a class="reference internal" href="#error-handlers">Error handlers</a></li>
+<li><a class="reference internal" href="#views">Views</a></li>
+</ul>
+</li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="#">Documentation overview</a><ul>
+  </ul></li>
+</ul>
+</div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/index.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, Mariam Maarouf.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.4.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.8</a>
+      
+      |
+      <a href="_sources/index.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

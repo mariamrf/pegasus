@@ -1,4 +1,6 @@
-"""PEGASUS Views
+"""
+Views
+------
 
 General:
     This file contains all the business logic related to the app 'views'/URLs and how the server interacts
