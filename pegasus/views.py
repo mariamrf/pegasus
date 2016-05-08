@@ -169,7 +169,7 @@ def register_user():
     error = None
     if request.method == 'POST':
         try:
-            pw = generate_password_hash(request.form['password'])
+            pw = generate_password_hash(request.form['password'], method='pbkdf2:sha512:10000')
             un = request.form['username'].lower()
             em = request.form['email'].lower()
             g.db.execute('insert into users (username, password, email, name) values (?, ?, ?, ?)', [un, pw, em, request.form['name']])
@@ -388,7 +388,7 @@ def change_password():
     else:
         error = 'None'
         new_token = generate_csrf_token()
-        password = generate_password_hash(request.form['password'])
+        password = generate_password_hash(request.form['password'], method='pbkdf2:sha512:10000')
         pw = g.db.execute('select password from users where id=?', [session['userid']]).fetchone()[0]
         if not check_password_hash(pw, request.form['old-password']):
             error = 'Old password you entered is incorrect.'
