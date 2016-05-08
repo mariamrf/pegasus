@@ -1,9 +1,0 @@
-pegasus
-=======
-
-.. toctree::
-   :maxdepth: 4
-
-   init_db
-   pegasus
-   run_pegasus

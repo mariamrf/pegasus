@@ -1,4 +1,7 @@
 *.py[cod]
 venv
 Makefile
+_build
+tasks
+todos
 
