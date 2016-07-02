@@ -439,7 +439,7 @@ def invite_user(email, boardID):
     inviteID = uuid.uuid4().hex
     error = 'None'
     successful='false'
-    if is_owner(b_id, user):
+    if is_owner(bid, user):
         try:
             g.db.execute('insert into invites (id, userEmail, boardID, type) values (?, ?, ?, ?)', [inviteID, em, bid, ty])
             g.db.commit()
