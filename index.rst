@@ -52,11 +52,12 @@ Installation
 	$ . venv/bin/activate
 	$ pip install -r requirements.txt
 3. Initialize the database.
-	.. note:: If this is the first time initalizing the database, make sure you make the file executable first by running ``$ chmod a+x init_db.py``. Same goes for step #4.
 ::
+	$ chmod a+x init_db.py
 	$ ./init_db.py
 4. Run the app.
 ::
+	$ chmod a+x run_pegasus.py
 	$ ./run_pegasus.py
 .. note:: Default IP:port is 127.0.0.1:5000. You can change that by specifying the port and/or IP like this:
 	``$ ./run_pegasus.py -ip IP_ADDRESS -port PORT_NUMBER``
