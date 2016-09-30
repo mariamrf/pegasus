@@ -13,4 +13,7 @@ This project was part of the second edition of [Learn IT, Girl](http://learnitgi
 ## Rules, Installation, and Docs
 All relevant info about that can be found [here](http://pegasus.readthedocs.io/en/latest/).
 
+## Contributing
+This is something I built to learn, so you're welcome to do the same as well. Issues (everything I want to do next) are reported here but feel free to report new issues/improvements and if all looks good, work on them. 
 
+I added the Hacktoberfest label to some issues I think would be good for beginners (like me!) or generally more understandable (some of the other issues are missing context, I think) but again feel free to pick anything you want to work on and let me know.
