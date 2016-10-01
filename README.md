@@ -1,5 +1,5 @@
 # Pegasus
-[![Documentation Status](https://readthedocs.org/projects/pegasus/badge/?version=latest)](http://pegasus.readthedocs.io/en/latest/?badge=latest)
+[![Documentation Status](https://readthedocs.org/projects/pegasus/badge/?version=latest)](http://pegasus.readthedocs.io/en/latest/?badge=latest)  [![Build Status](https://travis-ci.org/blaringsilence/pegasus.svg?branch=master)](https://travis-ci.org/blaringsilence/pegasus)
 
 ## About
 a whiteboard collaboration app whose aim is to enable/facilitate realtime sharing of ideas in the form of components (for example: text, images, code, etc) that can be pieced together and edited by several people in a live session, and exported at any time.
