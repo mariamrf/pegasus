@@ -83,4 +83,5 @@ Docs
 	:members:
 
 .. automodule:: test_pegasus
+	:members:
 

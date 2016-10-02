@@ -179,10 +179,11 @@ def register_user():
             return redirect(url_for('index'))
         except sqlite3.IntegrityError as e:
             if e.args[0][32:] == 'email':
-                error = 'Email'
+                error = 'Email is already in use.'
             elif e.args[0][32:] == 'username':
-                error = 'Username'
-            error = error + ' already in use.'
+                error = 'Username is already in use.'
+            else:
+                error = e.args[0]
     return render_template('register.html', error=error)
 
 @app.route('/login', methods=['GET', 'POST'])
