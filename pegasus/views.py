@@ -175,6 +175,7 @@ def register_user():
             g.db.execute('insert into users (username, password, email, name) values (?, ?, ?, ?)', [un, pw, em, request.form['name']])
             g.db.commit()
             login_user(un)
+            flash('Successfully registered!')
             return redirect(url_for('index'))
         except sqlite3.IntegrityError as e:
             if e.args[0][32:] == 'email':
@@ -244,6 +245,7 @@ def create_board():
             g.db.commit()
             boardID = cur.lastrowid
             cur.close()
+            flash('Board successfully created!')
             return redirect(url_for('show_board', boardID=boardID))
         except sqlite3.Error as e:
             error = 'An error occured: ' + e.args[0]
@@ -367,7 +369,7 @@ def edit_profile():
                 if error == 'None':
                     error = 'Username is not available.'
                 else:
-                    error+='Username is not available.'
+                    error+=' Username is not available.'
         if okay:
             if old_name != name or old_email != em or old_username != un: # only proceed if any changes were made
                 try:

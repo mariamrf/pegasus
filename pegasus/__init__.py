@@ -14,6 +14,8 @@ DEBUG = True
 """For dev purposes."""
 SECRET_KEY = 'you shall not pass'
 """Also for dev purposes."""
+CSRF_ENABLED = True
+"""To be able to disable it when testing"""
 
 
 # initialize app
@@ -54,7 +56,7 @@ def csrf_protect():
     If present, pop (remove from session and get its value) then compare to the token submitted in the form.
     If there's no token or the token is not equal to the one from the form, abort the request.
     """
-    if request.method == 'POST': # GET/ajax protection can be defined in their respective functions
+    if request.method == 'POST' and app.config['CSRF_ENABLED']: # GET/ajax protection can be defined in their respective functions
         token = session.pop('_csrf_token', None)
         if not token or token != request.form.get('_csrf_token'):
             abort(400) 

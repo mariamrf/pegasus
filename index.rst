@@ -82,3 +82,5 @@ Docs
 .. automodule:: pegasus.errorhandlers
 	:members:
 
+.. automodule:: test_pegasus
+
