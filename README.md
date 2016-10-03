@@ -17,3 +17,10 @@ All relevant info about that can be found [here](http://pegasus.readthedocs.io/e
 This is something I built to learn, so you're welcome to do the same as well. Issues (everything I want to do next) are reported here but feel free to report new issues/improvements and if all looks good, work on them. 
 
 I added the Hacktoberfest label to some issues I think would be good for beginners (like me!) or generally more understandable (some of the other issues are missing context, I think) but again feel free to pick anything you want to work on and let me know.
+
+What you have to do:
+- Fork the repo.
+- Create a branch. Work on it.
+- Create a PR here with all the details/reference to the issue it solves.
+
+[Here's a great article with more details for absolute beginners.](https://akrabat.com/the-beginners-guide-to-contributing-to-a-github-project/#summary)
