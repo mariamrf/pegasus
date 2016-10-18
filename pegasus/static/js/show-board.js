@@ -111,7 +111,6 @@ function initVar(isDone, canEdit, done_at, isOwner, logged_in, username, email, 
                 if(!data.error){ // has new messages
                     for(var i=0; i<data.messages.length; i++){
                     var username;
-                    console.log(data.messages[i]);
                     if (data.messages[i].userID){
                         var id = data.messages[i].userID; // get username from db
                         $.ajax({
@@ -220,6 +219,7 @@ function initVar(isDone, canEdit, done_at, isOwner, logged_in, username, email, 
         }
     });
 
+    var invitedUserChangeList = [];
     if (isOwner) {
 		// SEE INVITED PEOPLE
 		$('#invitedUsersModal').on('shown.bs.modal', function(){
@@ -230,44 +230,42 @@ function initVar(isDone, canEdit, done_at, isOwner, logged_in, username, email, 
 				success: function(data){
 					$('#invited-users-spinner').remove();
 					if(data.error=='None'){
+					    invitedUserChangeList = data.invited.slice();
 						// we have invited users!
-						$('#invited-users-list').append('<div class="invited-users-title">Email <span class="edit-checkbox-title">Can Edit</span></div>');
+                        $('#invited-users-list').append('<div class="invited-users-title">Email <div class="edit-users-title"><span style="float:left;">Can Edit</span><span style="float:right;padding-right:16px;">Remove</span></div></div>');
 						for(var i=0; i<data.invited.length; i++){
 							var email = data.invited[i].userEmail;
 							var type = data.invited[i].type;
+							invitedUserChangeList[i].initType = type;
 							var checked="";
 							if(type=='edit'){
 								checked="checked";
 							}
-                            $('#invited-users-list').append('<form class="edit-invited-form">'
-                                                            +'<input type="hidden" name="_csrf_token" value="'+data.token+'"/>'
-                                                            +'<input type="hidden" name="boardID" value="'+B+'"/>'
-                                                            +'<input type="hidden" name="email" value="'+email+'"/>'
-                                                            +'<input type="hidden" name="inviteType" value="'+type+'"/>'
-                                                            + email
-                                                            +'<input name="type" type="checkbox" value="canEdit" aria-label="Enable or disable user\'s editing privileges." title="Can Edit" class="edit-checkbox" '+ checked +'/>'
-                                                            +'</form>');
+                            $('#invited-users-list').append('<div class=invited-users-row data-id=row_' + i + '>'
+                            +'<input type="hidden" name="_csrf_token" value="'+data.token+'"/>'
+                            +'<input type="hidden" name="boardID" value="'+boardID+'"/>'
+                            +'<input type="hidden" name="email" value="'+email+'"/>'
+                            +'<input type="hidden" name="inviteType" value="'+type+'"/>'
+                            + email
+                            +'<div class="edit-users">'
+                            +'<input name="type" type="checkbox" value="canEdit" aria-label="Enable or disable user\'s editing privileges." data-id=' + i + ' class="edit-user-checkbox" title="Can Edit"'+ checked +'/>'
+                            +'<button class="global-btn delete-btn remove-user-button" data-id=' + i +' title="Remove">Remove</button>'
+                            +'</div>'
+                            +'</div>');
                         }
-                        $('.edit-checkbox').bind('change', function(){
-                            $(this).parent().submit();
+                        $('.edit-user-checkbox').bind('change', function(){
+                            if(this.checked){
+                                invitedUserChangeList[$(this).attr("data-id")].type = 'edit';
+                            }
+                            else{
+                                invitedUserChangeList[$(this).attr("data-id")].type = 'view'
+                            }
                         });
-                        $('.edit-invited-form').submit(function(event){
-                            event.preventDefault();
-                            $('.edit-checkbox').prop('disabled', true);
-                            var d = $(this).serialize();
-                            $.ajax({
-                                method: 'POST',
-                                async: false,
-                                url: Flask.url_for('edit_invite'),
-                                data: d,
-                                success: function(data){
-                                    $('.edit-checkbox').prop('disabled', false);
-                                    if(data.error != 'None'){
-                                        $('#invitedUsersModal .modal-body').prepend('<div class="alert alert-warning" id="error-msg" role="alert">'+data.error+'</div>');
-                                    }
-                                    $("input[name='_csrf_token']").val(data.token);
-                                }
-                            });
+                        $('.remove-user-button').click(function(event){
+                            var id = $(this).attr("data-id");
+                            var row = $("* [data-id=row_" + id + "]");
+                            invitedUserChangeList.splice(invitedUserChangeList.indexOf(row.children()[2].value), 1)
+                            removeInvitedUser(boardID, row.children()[2].value, row);
                         });
                     }
 					else {
@@ -277,6 +275,17 @@ function initVar(isDone, canEdit, done_at, isOwner, logged_in, username, email, 
 			});
 		});
 		$('#invitedUsersModal').on('hidden.bs.modal', function(){
+		    if(invitedUserChangeList){
+                var list = []
+                for(var i = 0; i < invitedUserChangeList.length; i++){
+                    if(invitedUserChangeList[i].type != invitedUserChangeList[i].initType){
+                        list.push(invitedUserChangeList[i]);
+                    }
+                }
+                if(list.length > 0){
+                    invitedUserChange(list, boardID);
+                }
+            }
 			$('#invited-users-modal-body').html("<h4 class='text-center' id='invited-users-spinner'><i class='fa fa-spinner fa-pulse'></i></h4>"
 				+"<div id='invited-users-list'></div>");
 		});
@@ -424,5 +433,47 @@ function initSendMsg(boardID, INVITE){
         }).always(function(){
             $('#chat-textarea').prop('disabled', false); // re-enable once everything is done and tokens are re-assigned
         });
+    });
+}
+
+function invitedUserChange(list, boardID){
+    for(var i=0; i < list.length; i++){
+        var data = {
+            '_csrf_token': $("input[name='_csrf_token']").val(),
+            'boardID': boardID,
+            'email': list[i].userEmail,
+            'inviteType': list[i].type}
+        $.ajax({
+            method: 'POST',
+            url: Flask.url_for('edit_invite'),
+            data: data,
+            success: function(data){
+                if(data.error != 'None'){
+                    $('#invitedUsersModal .modal-body').prepend('<div class="alert alert-warning" id="error-msg" role="alert">'+data.error+'</div>');
+                }
+                $("input[name='_csrf_token']").val(data.token);
+            }
+        });
+    }
+}
+
+function removeInvitedUser(boardID, email, row){
+    var data = {
+        '_csrf_token': $("input[name='_csrf_token']").val(),
+        'boardID': boardID,
+        'email': email}
+    $.ajax({
+        method: 'POST',
+        url: Flask.url_for('remove_invite'),
+        data: data,
+        success: function(data){
+            if(data.error != 'None'){
+                $('#invitedUsersModal .modal-body').prepend('<div class="alert alert-warning" id="error-msg" role="alert">'+data.error+'</div>');
+            }
+            else{
+                row.remove();
+            }
+            $("input[name='_csrf_token']").val(data.token);
+        }
     });
 }

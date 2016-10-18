@@ -55,11 +55,11 @@ import sqlite3
 import uuid
 import string
 import random
+
 from flask import request, session, g, redirect, url_for, abort, render_template, flash, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 from itertools import islice
-
 
 
 # all the definitions
@@ -408,22 +408,16 @@ def change_password():
 @app.route('/_editInvite', methods=['POST'])
 def edit_invite():
     """Edit the type of invitation/access to invited users. Available only to board owner."""
-    bid = int(request.form['boardID'])
-    em = request.form['email']
-    old_type = request.form['inviteType']
+    bid = int(request.form.get('boardID'))
+    em = request.form.get('email')
+    type = request.form.get('inviteType')
     new_token = generate_csrf_token()
     error = 'None'
     if not session.get('logged_in') or not is_owner(bid, session['userid']):
         abort(401)
     else:
-        if old_type=='edit':
-            new_type = 'view'
-        elif old_type=='view':
-            new_type = 'edit'
-        else:
-            abort(400)
         try:
-            g.db.execute('update invites set type=? where boardID=? and userEmail=?', [new_type, bid, em])
+            g.db.execute('update invites set type=? where boardID=? and userEmail=?', [type, bid, em])
             g.db.commit()
         except sqlite3.Error as e:
             error = e.args[0]
@@ -784,5 +778,19 @@ def delete_component(boardID, componentID):
         error = 'This board is locked for edit by another user.'
     return jsonify(error=error, token=new_token)
 
-
-
+@app.route('/_removeInvite', methods=['POST'])
+def remove_invite():
+    """Remove invited users from board. Available only to board owner."""
+    bid = int(request.form.get('boardID'))
+    em = request.form.get('email')
+    new_token = generate_csrf_token()
+    error = 'None'
+    if not session.get('logged_in') or not is_owner(bid, session['userid']):
+        abort(401)
+    else:
+        try:
+            g.db.execute('delete from invites where boardID=? and userEmail=?', [bid, em])
+            g.db.commit()
+        except sqlite3.Error as e:
+            error = e.args[0]
+        return jsonify(error=error, token=new_token)
