@@ -1,5 +1,5 @@
 # Pegasus
-[![Documentation Status](https://readthedocs.org/projects/pegasus/badge/?version=latest)](http://pegasus.readthedocs.io/en/latest/?badge=latest)  [![Build Status](https://travis-ci.org/mariamrf/pegasus.svg?branch=master)](https://travis-ci.org/blaringsilence/pegasus)
+[![Documentation Status](https://readthedocs.org/projects/pegasus-whiteboard/badge/?version=latest)](http://pegasus.readthedocs.io/en/latest/?badge=latest)  [![Build Status](https://travis-ci.org/mariamrf/pegasus.svg?branch=master)](https://travis-ci.org/blaringsilence/pegasus)
 
 ## About
 a whiteboard collaboration app whose aim is to enable/facilitate realtime sharing of ideas in the form of components (for example: text, images, code, etc) that can be pieced together and edited by several people in a live session, and exported at any time.
@@ -11,7 +11,7 @@ The plan is to add components, and features (like exporting the board as text in
 This project was part of the second edition of [Learn IT, Girl](http://learnitgirl.com), and would not have been possible without the continuous mentorship, support, and tolerance of 'newbie' questions courtesy of [@daniel-j-h](https://github.com/daniel-j-h).
 
 ## Rules, Installation, and Docs
-All relevant info about that can be found [here](http://pegasus.readthedocs.io/en/latest/).
+All relevant info about that can be found [here](http://pegasus-whiteboard.readthedocs.io/en/latest/).
 
 ## Contributing
 This is something I built to learn, so you're welcome to do the same as well. Issues (everything I want to do next) are reported here but feel free to report new issues/improvements and if all looks good, work on them. 
