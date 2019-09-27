@@ -43,7 +43,7 @@ Installation
 ~~~~~~~~~~~~
 1. Clone the repo. 
 ::
-	$ git clone https://github.com/blaringsilence/pegasus.git
+	$ git clone https://github.com/mariamrf/pegasus.git
 	$ cd pegasus
 2. Install `virtualenv`_ and activate it.
 ::
@@ -66,7 +66,7 @@ Installation
 .. _Learn IT, Girl: http://learnitgirl.com
 .. _@daniel-j-h: https://github.com/daniel-j-h
 .. _virtualenv: https://pypi.python.org/pypi/virtualenv
-.. _on Github: https://github.com/blaringsilence/pegasus/blob/master/pegasus/templates/show-board.html
+.. _on Github: https://github.com/mariamrf/pegasus/blob/master/pegasus/templates/show-board.html
 
 .. _docs:
 
