@@ -7,7 +7,7 @@ Flask==0.10.1
 Flask-JSGlue==0.3
 imagesize==0.7.1
 itsdangerous==0.24
-Jinja2==2.9
+Jinja2==2.11.3
 MarkupSafe==0.23
 mccabe==0.4.0
 pep8==1.7.0
